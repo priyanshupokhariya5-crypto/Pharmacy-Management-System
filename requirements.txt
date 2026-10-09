@@ -1,0 +1,9 @@
+# Pharmacy Management System Dependencies
+# Pharmacy Management System (Q13)
+
+customtkinter>=6.0.0
+darkdetect>=0.8.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+Pillow>=9.5.0
+fpdf
