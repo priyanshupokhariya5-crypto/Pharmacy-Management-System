@@ -1,6 +1,7 @@
 """
 Report Generator module using Pandas and Matplotlib.
 Provides analytical DataFrames, category aggregations, and Matplotlib figures for Fact-Based Decision Making.
+Enforces multi-store tenant isolation across all reporting metrics and charts.
 """
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
@@ -14,58 +15,60 @@ from models.medicine import LOW_STOCK_THRESHOLD, EXPIRING_SOON_DAYS
 
 
 class ReportGenerator:
-    """Generates inventory/sales DataFrames and Matplotlib figures for desktop visualization."""
+    """Generates inventory/sales DataFrames and Matplotlib figures scoped to the active store."""
 
-    def __init__(self, db: Optional[Database] = None):
+    def __init__(self, db: Optional[Database] = None, store_id: Optional[str] = None):
         self.db = db or get_db()
+        self.store_id = store_id or "STORE-LEGACY-001"
 
     def get_inventory_dataframe(self) -> pd.DataFrame:
-        """Returns a Pandas DataFrame of full inventory with calculated total value."""
+        """Returns a Pandas DataFrame of store inventory with calculated total value."""
         query = """
-        SELECT medicine_id, medicine_code, medicine_name, category, manufacturer,
+        SELECT medicine_id, store_id, medicine_code, medicine_name, category, manufacturer,
                batch_no, price, quantity, expiry_date, (price * quantity) as total_value
         FROM medicines
+        WHERE store_id = ?
         ORDER BY medicine_name ASC
         """
         conn = self.db.get_connection()
         try:
-            df = pd.read_sql_query(query, conn)
+            df = pd.read_sql_query(query, conn, params=(self.store_id,))
             return df
         finally:
             conn.close()
 
     def get_low_stock_dataframe(self, threshold: int = LOW_STOCK_THRESHOLD) -> pd.DataFrame:
-        """Returns a Pandas DataFrame of low stock medicines (0 < quantity <= 10)."""
+        """Returns a Pandas DataFrame of low stock medicines (0 < quantity <= 10) in active store."""
         query = """
         SELECT medicine_code, medicine_name, category, manufacturer, quantity, price, (price * quantity) as total_value
         FROM medicines
-        WHERE quantity > 0 AND quantity <= ?
+        WHERE store_id = ? AND quantity > 0 AND quantity <= ?
         ORDER BY quantity ASC
         """
         conn = self.db.get_connection()
         try:
-            df = pd.read_sql_query(query, conn, params=(threshold,))
+            df = pd.read_sql_query(query, conn, params=(self.store_id, threshold))
             return df
         finally:
             conn.close()
 
     def get_out_of_stock_dataframe(self) -> pd.DataFrame:
-        """Returns a Pandas DataFrame of out-of-stock medicines (quantity == 0)."""
+        """Returns a Pandas DataFrame of out-of-stock medicines (quantity == 0) in active store."""
         query = """
         SELECT medicine_code, medicine_name, category, manufacturer, quantity, price
         FROM medicines
-        WHERE quantity = 0
+        WHERE store_id = ? AND quantity = 0
         ORDER BY medicine_name ASC
         """
         conn = self.db.get_connection()
         try:
-            df = pd.read_sql_query(query, conn)
+            df = pd.read_sql_query(query, conn, params=(self.store_id,))
             return df
         finally:
             conn.close()
 
     def get_expiry_report_dataframe(self) -> pd.DataFrame:
-        """Returns a Pandas DataFrame of medicine expiry statuses based on current date."""
+        """Returns a Pandas DataFrame of medicine expiry statuses for active store."""
         df = self.get_inventory_dataframe()
         if df.empty:
             return df
@@ -88,18 +91,19 @@ class ReportGenerator:
         return df
 
     def get_sales_history_dataframe(self) -> pd.DataFrame:
-        """Returns a Pandas DataFrame summarizing total sales transactions and line items count."""
+        """Returns a Pandas DataFrame summarizing total sales transactions and line items for active store."""
         query = """
-        SELECT s.sale_id, s.invoice_number, s.patient_name, s.patient_phone, s.patient_age,
+        SELECT s.sale_id, s.store_id, s.invoice_number, s.patient_name, s.patient_phone, s.patient_age,
                s.sale_date, s.total_amount, u.username as cashier,
-               (SELECT SUM(quantity) FROM sale_items si WHERE si.sale_id = s.sale_id) as total_items
+               (SELECT SUM(quantity) FROM sale_items si WHERE si.sale_id = s.sale_id AND si.store_id = s.store_id) as total_items
         FROM sales s
         LEFT JOIN users u ON s.user_id = u.user_id
+        WHERE s.store_id = ?
         ORDER BY s.sale_id DESC
         """
         conn = self.db.get_connection()
         try:
-            df = pd.read_sql_query(query, conn)
+            df = pd.read_sql_query(query, conn, params=(self.store_id,))
             if not df.empty:
                 df["total_items"] = df["total_items"].fillna(0).astype(int)
             return df
@@ -107,7 +111,7 @@ class ReportGenerator:
             conn.close()
 
     def get_category_analysis_dataframe(self) -> pd.DataFrame:
-        """Performs Pandas aggregation grouped by category to compute stock totals and inventory values."""
+        """Performs Pandas aggregation grouped by category for the active store."""
         df = self.get_inventory_dataframe()
         if df.empty:
             return pd.DataFrame(columns=["category", "medicine_count", "total_quantity", "total_inventory_value"])
@@ -122,7 +126,7 @@ class ReportGenerator:
         return summary
 
     def get_sales_summary_metrics(self) -> Dict[str, Any]:
-        """Calculates analytical sales KPIs using Pandas or SQL aggregation."""
+        """Calculates analytical sales KPIs for the active store."""
         df_sales = self.get_sales_history_dataframe()
         if df_sales.empty:
             return {
@@ -145,7 +149,7 @@ class ReportGenerator:
         }
 
     def generate_category_stock_chart(self) -> plt.Figure:
-        """Generates a Matplotlib Bar Chart figure showing total stock quantity by category."""
+        """Generates a Matplotlib Bar Chart figure showing total stock quantity by category for active store."""
         df = self.get_category_analysis_dataframe()
 
         fig, ax = plt.subplots(figsize=(5.5, 3.2), dpi=100)
@@ -174,7 +178,7 @@ class ReportGenerator:
         return fig
 
     def generate_stock_status_chart(self) -> plt.Figure:
-        """Generates a Matplotlib Bar Chart figure showing medicine counts by stock status."""
+        """Generates a Matplotlib Bar Chart figure showing medicine counts by stock status for active store."""
         df = self.get_inventory_dataframe()
 
         fig, ax = plt.subplots(figsize=(5.5, 3.2), dpi=100)

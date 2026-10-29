@@ -56,9 +56,11 @@ class MainWindowContent(ctk.CTkFrame):
             text_color=Theme.TEXT_DARK, command=self._handle_logout,
         ).pack(side="right", padx=10, pady=10)
 
+        store_name = getattr(self.user, 'store_name', 'Pharmacy Store')
+        owner_name = getattr(self.user, 'full_name', '') or self.user.username
         ctk.CTkLabel(
             self.header_frame,
-            text=f"👤 {self.user.username}  ({self.user.role})",
+            text=f"🏥  {store_name}  |  👤 {owner_name} ({self.user.role})",
             font=Theme.FONT_SUBHEADING, text_color=Theme.PRIMARY,
         ).pack(side="right", padx=(10, 0), pady=10)
 
@@ -132,6 +134,45 @@ class MainWindowContent(ctk.CTkFrame):
 
         self.current_nav = "Dashboard"
 
+        # Background pre-warm for fast section switching without UI blocking
+        self._prewarm_queue = [
+            "Medicines", "Search", "Billing", "Benchmark", "FMEA", "SQC", "Reports"
+        ]
+        self.after(100, self._prewarm_step)
+
+    def _prewarm_step(self) -> None:
+        """Instantiate remaining views sequentially in idle slices to avoid click freezing."""
+        if not self._prewarm_queue:
+            return
+        nav_key = self._prewarm_queue.pop(0)
+        try:
+            if nav_key == "Medicines" and self.medicines_view is None:
+                from ui.medicines import MedicinesView
+                self.medicines_view = MedicinesView(self.content_container, self.user)
+            elif nav_key == "Search" and self.search_view is None:
+                from ui.search import AdvancedSearchView
+                self.search_view = AdvancedSearchView(self.content_container, self.user)
+            elif nav_key == "Billing" and self.billing_view is None:
+                from ui.billing import BillingView
+                self.billing_view = BillingView(self.content_container, self.user)
+            elif nav_key == "Benchmark" and self.benchmark_view is None:
+                from ui.benchmark_view import BenchmarkView
+                self.benchmark_view = BenchmarkView(self.content_container)
+            elif nav_key == "FMEA" and self.fmea_view is None:
+                from ui.fmea_view import FMEAView
+                self.fmea_view = FMEAView(self.content_container, user=self.user)
+            elif nav_key == "SQC" and self.sqc_view is None:
+                from ui.sqc_view import SQCView
+                self.sqc_view = SQCView(self.content_container, user=self.user)
+            elif nav_key == "Reports" and self.reports_view is None:
+                from ui.reports_view import ReportsView
+                self.reports_view = ReportsView(self.content_container, self.user)
+        except Exception as e:
+            self.logger.log_event("NAV", f"Background pre-warm for {nav_key} skipped: {e}")
+
+        if self._prewarm_queue:
+            self.after(60, self._prewarm_step)
+
     # ------------------------------------------------------------------
     # Navigation
     # ------------------------------------------------------------------
@@ -179,7 +220,8 @@ class MainWindowContent(ctk.CTkFrame):
             if self.reports_view is None:
                 from ui.reports_view import ReportsView
                 self.reports_view = ReportsView(self.content_container, self.user)
-            self.reports_view.refresh_reports()
+            else:
+                self.reports_view.refresh_reports()
             self.reports_view.pack(fill="both", expand=True)
         elif nav_key == "Benchmark":
             if self.benchmark_view is None:
@@ -189,12 +231,12 @@ class MainWindowContent(ctk.CTkFrame):
         elif nav_key == "FMEA":
             if self.fmea_view is None:
                 from ui.fmea_view import FMEAView
-                self.fmea_view = FMEAView(self.content_container)
+                self.fmea_view = FMEAView(self.content_container, user=self.user)
             self.fmea_view.pack(fill="both", expand=True)
         elif nav_key == "SQC":
             if self.sqc_view is None:
                 from ui.sqc_view import SQCView
-                self.sqc_view = SQCView(self.content_container)
+                self.sqc_view = SQCView(self.content_container, user=self.user)
             self.sqc_view.pack(fill="both", expand=True)
 
     def _handle_logout(self) -> None:

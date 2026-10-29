@@ -78,7 +78,8 @@ class FMEAView(ctk.CTkFrame):
     def __init__(self, parent, user=None, **kwargs):
         super().__init__(parent, fg_color="transparent", **kwargs)
         self.user = user
-        self._service = FMEAService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001') if self.user else 'STORE-LEGACY-001'
+        self._service = FMEAService(store_id=store_id)
         self._all_records: List[FMEARecord] = []
         self._sort_by = "rpn"
         self._sort_dir = "DESC"

@@ -150,8 +150,9 @@ class DashboardView(ctk.CTkFrame):
     def __init__(self, parent, user: User):
         super().__init__(parent, fg_color="transparent")
         self.user = user
-        self.medicine_service = MedicineService()
-        self.search_service = SearchService()
+        self.store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001')
+        self.medicine_service = MedicineService(store_id=self.store_id)
+        self.search_service = SearchService(store_id=self.store_id)
         self.logger = get_app_logger()
 
         # Debounce timer reference
@@ -166,9 +167,12 @@ class DashboardView(ctk.CTkFrame):
         header = ctk.CTkFrame(self, fg_color=Theme.BG_CARD, corner_radius=12)
         header.pack(fill="x", pady=(0, 15))
 
+        display_name = getattr(self.user, 'full_name', '') or self.user.username
+        store_display = getattr(self.user, 'store_name', '') or "Pharmacy Store"
+
         title_label = ctk.CTkLabel(
             header,
-            text=f"Welcome back, {self.user.username} 👋",
+            text=f"Welcome back, {display_name} 👋",
             font=Theme.FONT_TITLE,
             text_color=Theme.TEXT_MAIN
         )
@@ -176,7 +180,7 @@ class DashboardView(ctk.CTkFrame):
 
         subtitle_label = ctk.CTkLabel(
             header,
-            text=f"Role: {self.user.role} | Pharmacy Management System",
+            text=f"Store: {store_display} | ID: {self.store_id} | Role: {self.user.role}",
             font=Theme.FONT_BODY,
             text_color=Theme.TEXT_MUTED
         )

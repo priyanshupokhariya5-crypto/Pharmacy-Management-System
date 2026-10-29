@@ -10,12 +10,9 @@ import sqlite3
 import time
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
+from utils.paths import get_default_benchmark_db_path
 
-DEFAULT_BENCHMARK_DB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "benchmark.db"
-)
+DEFAULT_BENCHMARK_DB_PATH = get_default_benchmark_db_path()
 
 CATEGORIES = [
     "Analgesic", "Antibiotic", "Antihistamine", "Antidiabetic",

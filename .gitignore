@@ -33,8 +33,14 @@ env/
 
 # Local Database
 data/*.db
+server/*.db
+*.db
 !data/.gitkeep
 
 # Logs
 *.log
 *.bak
+
+# Environment and Secrets
+.env
+.env.local

@@ -52,6 +52,7 @@ SORT_WHITELIST_PDCA = {
 SQC_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS sqc_defects (
     defect_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    store_id         TEXT    REFERENCES stores(store_id),
     date_reported    TEXT NOT NULL,
     module           TEXT NOT NULL,
     defect_type      TEXT NOT NULL,
@@ -69,6 +70,7 @@ CREATE TABLE IF NOT EXISTS sqc_defects (
 
 CREATE TABLE IF NOT EXISTS pdca_items (
     pdca_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    store_id         TEXT    REFERENCES stores(store_id),
     improvement_id   TEXT NOT NULL UNIQUE,
     problem          TEXT NOT NULL,
     plan_action      TEXT NOT NULL,
@@ -89,7 +91,9 @@ CREATE INDEX IF NOT EXISTS idx_sqc_module   ON sqc_defects(module);
 CREATE INDEX IF NOT EXISTS idx_sqc_severity ON sqc_defects(severity);
 CREATE INDEX IF NOT EXISTS idx_sqc_status   ON sqc_defects(status);
 CREATE INDEX IF NOT EXISTS idx_sqc_type     ON sqc_defects(defect_type);
+CREATE INDEX IF NOT EXISTS idx_sqc_store    ON sqc_defects(store_id);
 CREATE INDEX IF NOT EXISTS idx_pdca_status  ON pdca_items(status);
+CREATE INDEX IF NOT EXISTS idx_pdca_store   ON pdca_items(store_id);
 """
 
 # ---------------------------------------------------------------------------
@@ -111,6 +115,7 @@ class SQCDefect:
     reported_by:       str = "QA Team"
     created_at:        Optional[str] = None
     updated_at:        Optional[str] = None
+    store_id:          Optional[str] = None
 
     @classmethod
     def from_row(cls, row) -> "SQCDefect":
@@ -129,6 +134,7 @@ class SQCDefect:
             reported_by=row["reported_by"],
             created_at=row["created_at"] if "created_at" in keys else None,
             updated_at=row["updated_at"] if "updated_at" in keys else None,
+            store_id=row["store_id"] if "store_id" in keys else None,
         )
 
     def validate(self) -> List[str]:
@@ -160,7 +166,7 @@ class SQCDefect:
             "description": self.description, "severity": self.severity,
             "frequency": self.frequency, "status": self.status,
             "root_cause": self.root_cause, "corrective_action": self.corrective_action,
-            "reported_by": self.reported_by,
+            "reported_by": self.reported_by, "store_id": self.store_id,
         }
 
 
@@ -180,6 +186,7 @@ class PDCAItem:
     notes:          str
     created_at:     Optional[str] = None
     updated_at:     Optional[str] = None
+    store_id:       Optional[str] = None
 
     @classmethod
     def from_row(cls, row) -> "PDCAItem":
@@ -199,6 +206,7 @@ class PDCAItem:
             notes=row["notes"],
             created_at=row["created_at"] if "created_at" in keys else None,
             updated_at=row["updated_at"] if "updated_at" in keys else None,
+            store_id=row["store_id"] if "store_id" in keys else None,
         )
 
     def validate(self) -> List[str]:
@@ -224,8 +232,9 @@ class SQCService:
     for the sqc_defects and pdca_items tables.
     """
 
-    def __init__(self, db: Optional[Database] = None):
+    def __init__(self, db: Optional[Database] = None, store_id: Optional[str] = None):
         self.db = db or get_db()
+        self.store_id = store_id or "STORE-LEGACY-001"
 
     # ------------------------------------------------------------------
     # SQC Defect CRUD
@@ -236,16 +245,17 @@ class SQCService:
         if errors:
             return False, "; ".join(errors)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        target_store = d.store_id or self.store_id
         try:
             self.db.execute(
                 """
                 INSERT INTO sqc_defects
-                  (date_reported, module, defect_type, description, severity,
+                  (store_id, date_reported, module, defect_type, description, severity,
                    frequency, status, root_cause, corrective_action,
                    reported_by, created_at, updated_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
-                (d.date_reported, d.module, d.defect_type, d.description,
+                (target_store, d.date_reported, d.module, d.defect_type, d.description,
                  d.severity, d.frequency, d.status, d.root_cause,
                  d.corrective_action, d.reported_by, now, now),
             )
@@ -258,13 +268,15 @@ class SQCService:
         col = SORT_WHITELIST_DEFECTS.get(sort_by.lower(), "date_reported")
         direction = "DESC" if sort_dir.upper() == "DESC" else "ASC"
         rows = self.db.fetch_all(
-            f"SELECT * FROM sqc_defects ORDER BY {col} {direction}"
+            f"SELECT * FROM sqc_defects WHERE store_id = ? ORDER BY {col} {direction}",
+            (self.store_id,)
         )
         return [SQCDefect.from_row(r) for r in rows]
 
     def get_defect_by_id(self, defect_id: int) -> Optional[SQCDefect]:
         row = self.db.fetch_one(
-            "SELECT * FROM sqc_defects WHERE defect_id = ?", (defect_id,)
+            "SELECT * FROM sqc_defects WHERE defect_id = ? AND store_id = ?",
+            (defect_id, self.store_id)
         )
         return SQCDefect.from_row(row) if row else None
 
@@ -282,11 +294,11 @@ class SQCService:
                   date_reported=?, module=?, defect_type=?, description=?,
                   severity=?, frequency=?, status=?, root_cause=?,
                   corrective_action=?, reported_by=?, updated_at=?
-                WHERE defect_id=?
+                WHERE defect_id=? AND store_id=?
                 """,
                 (d.date_reported, d.module, d.defect_type, d.description,
                  d.severity, d.frequency, d.status, d.root_cause,
-                 d.corrective_action, d.reported_by, now, d.defect_id),
+                 d.corrective_action, d.reported_by, now, d.defect_id, self.store_id),
             )
             return True, "Defect updated successfully."
         except Exception as e:
@@ -295,7 +307,8 @@ class SQCService:
     def delete_defect(self, defect_id: int) -> Tuple[bool, str]:
         try:
             self.db.execute(
-                "DELETE FROM sqc_defects WHERE defect_id = ?", (defect_id,)
+                "DELETE FROM sqc_defects WHERE defect_id = ? AND store_id = ?",
+                (defect_id, self.store_id)
             )
             return True, "Defect deleted."
         except Exception as e:
@@ -312,8 +325,8 @@ class SQCService:
     ) -> List[SQCDefect]:
         col = SORT_WHITELIST_DEFECTS.get(sort_by.lower(), "date_reported")
         direction = "DESC" if sort_dir.upper() == "DESC" else "ASC"
-        conditions: List[str] = []
-        params: List[Any] = []
+        conditions: List[str] = ["store_id = ?"]
+        params: List[Any] = [self.store_id]
         if module:
             conditions.append("module = ?"); params.append(module)
         if severity:
@@ -322,7 +335,7 @@ class SQCService:
             conditions.append("status = ?"); params.append(status)
         if defect_type:
             conditions.append("defect_type LIKE ?"); params.append(f"%{defect_type}%")
-        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where = f"WHERE {' AND '.join(conditions)}"
         rows = self.db.fetch_all(
             f"SELECT * FROM sqc_defects {where} ORDER BY {col} {direction}",
             tuple(params),
@@ -337,15 +350,17 @@ class SQCService:
         """
         Returns defect types sorted by total frequency descending,
         with cumulative percentage — ready for a Pareto chart.
-        Data is always live from sqc_defects table.
+        Data is always live from sqc_defects table for active store.
         """
         rows = self.db.fetch_all(
             """
             SELECT defect_type, SUM(frequency) as total_freq
             FROM sqc_defects
+            WHERE store_id = ?
             GROUP BY defect_type
             ORDER BY total_freq DESC
-            """
+            """,
+            (self.store_id,)
         )
         if not rows:
             return []
@@ -370,16 +385,17 @@ class SQCService:
         if errors:
             return False, "; ".join(errors)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        target_store = p.store_id or self.store_id
         try:
             self.db.execute(
                 """
                 INSERT INTO pdca_items
-                  (improvement_id, problem, plan_action, do_action,
+                  (store_id, improvement_id, problem, plan_action, do_action,
                    check_action, act_action, owner, status, date_created,
                    result_metric, notes, created_at, updated_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
-                (p.improvement_id, p.problem, p.plan_action, p.do_action,
+                (target_store, p.improvement_id, p.problem, p.plan_action, p.do_action,
                  p.check_action, p.act_action, p.owner, p.status,
                  p.date_created, p.result_metric, p.notes, now, now),
             )
@@ -392,13 +408,15 @@ class SQCService:
         col = SORT_WHITELIST_PDCA.get(sort_by.lower(), "date_created")
         direction = "DESC" if sort_dir.upper() == "DESC" else "ASC"
         rows = self.db.fetch_all(
-            f"SELECT * FROM pdca_items ORDER BY {col} {direction}"
+            f"SELECT * FROM pdca_items WHERE store_id = ? ORDER BY {col} {direction}",
+            (self.store_id,)
         )
         return [PDCAItem.from_row(r) for r in rows]
 
     def get_pdca_by_id(self, pdca_id: int) -> Optional[PDCAItem]:
         row = self.db.fetch_one(
-            "SELECT * FROM pdca_items WHERE pdca_id = ?", (pdca_id,)
+            "SELECT * FROM pdca_items WHERE pdca_id = ? AND store_id = ?",
+            (pdca_id, self.store_id)
         )
         return PDCAItem.from_row(row) if row else None
 
@@ -416,11 +434,11 @@ class SQCService:
                   improvement_id=?, problem=?, plan_action=?, do_action=?,
                   check_action=?, act_action=?, owner=?, status=?,
                   date_created=?, result_metric=?, notes=?, updated_at=?
-                WHERE pdca_id=?
+                WHERE pdca_id=? AND store_id=?
                 """,
                 (p.improvement_id, p.problem, p.plan_action, p.do_action,
                  p.check_action, p.act_action, p.owner, p.status,
-                 p.date_created, p.result_metric, p.notes, now, p.pdca_id),
+                 p.date_created, p.result_metric, p.notes, now, p.pdca_id, self.store_id),
             )
             return True, "PDCA item updated."
         except Exception as e:
@@ -429,7 +447,8 @@ class SQCService:
     def delete_pdca(self, pdca_id: int) -> Tuple[bool, str]:
         try:
             self.db.execute(
-                "DELETE FROM pdca_items WHERE pdca_id = ?", (pdca_id,)
+                "DELETE FROM pdca_items WHERE pdca_id = ? AND store_id = ?",
+                (pdca_id, self.store_id)
             )
             return True, "PDCA item deleted."
         except Exception as e:
@@ -438,12 +457,13 @@ class SQCService:
     def filter_pdca(self, status: Optional[str] = None) -> List[PDCAItem]:
         if status:
             rows = self.db.fetch_all(
-                "SELECT * FROM pdca_items WHERE status = ? ORDER BY date_created DESC",
-                (status,),
+                "SELECT * FROM pdca_items WHERE store_id = ? AND status = ? ORDER BY date_created DESC",
+                (self.store_id, status),
             )
         else:
             rows = self.db.fetch_all(
-                "SELECT * FROM pdca_items ORDER BY date_created DESC"
+                "SELECT * FROM pdca_items WHERE store_id = ? ORDER BY date_created DESC",
+                (self.store_id,)
             )
         return [PDCAItem.from_row(r) for r in rows]
 
@@ -452,27 +472,33 @@ class SQCService:
     # ------------------------------------------------------------------
 
     def get_dashboard_kpis(self) -> Dict[str, Any]:
-        """Returns live SQC KPI metrics from the database."""
+        """Returns live SQC KPI metrics from the database for active store."""
         total_row = self.db.fetch_one(
-            "SELECT COUNT(*) as cnt FROM sqc_defects"
+            "SELECT COUNT(*) as cnt FROM sqc_defects WHERE store_id = ?",
+            (self.store_id,)
         )
         open_row = self.db.fetch_one(
-            "SELECT COUNT(*) as cnt FROM sqc_defects WHERE status='Open'"
+            "SELECT COUNT(*) as cnt FROM sqc_defects WHERE status='Open' AND store_id = ?",
+            (self.store_id,)
         )
         high_row = self.db.fetch_one(
-            "SELECT COUNT(*) as cnt FROM sqc_defects WHERE severity IN ('High','Critical')"
+            "SELECT COUNT(*) as cnt FROM sqc_defects WHERE severity IN ('High','Critical') AND store_id = ?",
+            (self.store_id,)
         )
         top_type_row = self.db.fetch_one(
             """
             SELECT defect_type, SUM(frequency) as freq
-            FROM sqc_defects GROUP BY defect_type ORDER BY freq DESC LIMIT 1
-            """
+            FROM sqc_defects WHERE store_id = ? GROUP BY defect_type ORDER BY freq DESC LIMIT 1
+            """,
+            (self.store_id,)
         )
         pdca_open_row = self.db.fetch_one(
-            "SELECT COUNT(*) as cnt FROM pdca_items WHERE status NOT IN ('Closed')"
+            "SELECT COUNT(*) as cnt FROM pdca_items WHERE status NOT IN ('Closed') AND store_id = ?",
+            (self.store_id,)
         )
         pdca_closed_row = self.db.fetch_one(
-            "SELECT COUNT(*) as cnt FROM pdca_items WHERE status='Closed'"
+            "SELECT COUNT(*) as cnt FROM pdca_items WHERE status='Closed' AND store_id = ?",
+            (self.store_id,)
         )
         pareto = self.get_pareto_data()
         top80_count = sum(1 for p in pareto if p["cumulative_pct"] <= 80)
@@ -489,13 +515,15 @@ class SQCService:
 
     def get_distinct_defect_types(self) -> List[str]:
         rows = self.db.fetch_all(
-            "SELECT DISTINCT defect_type FROM sqc_defects ORDER BY defect_type"
+            "SELECT DISTINCT defect_type FROM sqc_defects WHERE store_id = ? ORDER BY defect_type",
+            (self.store_id,)
         )
         return [r["defect_type"] for r in rows]
 
     def get_distinct_modules(self) -> List[str]:
         rows = self.db.fetch_all(
-            "SELECT DISTINCT module FROM sqc_defects ORDER BY module"
+            "SELECT DISTINCT module FROM sqc_defects WHERE store_id = ? ORDER BY module",
+            (self.store_id,)
         )
         return [r["module"] for r in rows]
 
@@ -767,9 +795,9 @@ SEED_PDCA_ITEMS = [
 
 def seed_sqc_data(db: Database) -> None:
     """Seeds initial SQC defect and PDCA records if tables are empty. Idempotent."""
-    d_count = db.fetch_one("SELECT COUNT(*) as cnt FROM sqc_defects")
+    d_count = db.fetch_one("SELECT COUNT(*) as cnt FROM sqc_defects WHERE store_id = 'STORE-LEGACY-001'")
     if d_count and d_count["cnt"] == 0:
-        svc = SQCService(db)
+        svc = SQCService(db, store_id="STORE-LEGACY-001")
         for r in SEED_SQC_DEFECTS:
             d = SQCDefect(
                 defect_id=None, date_reported=r["date_reported"],
@@ -779,12 +807,13 @@ def seed_sqc_data(db: Database) -> None:
                 root_cause=r["root_cause"],
                 corrective_action=r["corrective_action"],
                 reported_by=r["reported_by"],
+                store_id="STORE-LEGACY-001",
             )
             svc.add_defect(d)
 
-    p_count = db.fetch_one("SELECT COUNT(*) as cnt FROM pdca_items")
+    p_count = db.fetch_one("SELECT COUNT(*) as cnt FROM pdca_items WHERE store_id = 'STORE-LEGACY-001'")
     if p_count and p_count["cnt"] == 0:
-        svc = SQCService(db)
+        svc = SQCService(db, store_id="STORE-LEGACY-001")
         for r in SEED_PDCA_ITEMS:
             p = PDCAItem(
                 pdca_id=None, improvement_id=r["improvement_id"],
@@ -793,6 +822,7 @@ def seed_sqc_data(db: Database) -> None:
                 act_action=r["act_action"], owner=r["owner"],
                 status=r["status"], date_created=r["date_created"],
                 result_metric=r["result_metric"], notes=r["notes"],
+                store_id="STORE-LEGACY-001",
             )
             svc.add_pdca(p)
 

@@ -82,7 +82,8 @@ class SQCView(ctk.CTkFrame):
     def __init__(self, parent, user=None, **kwargs):
         super().__init__(parent, fg_color="transparent", **kwargs)
         self.user = user
-        self._svc = SQCService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001') if self.user else 'STORE-LEGACY-001'
+        self._svc = SQCService(store_id=store_id)
         self._build_ui()
         self.refresh()
 

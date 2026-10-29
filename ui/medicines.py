@@ -25,7 +25,8 @@ class MedicineFormModal(ctk.CTkToplevel):
         self.user = user
         self.medicine = medicine
         self.on_success_callback = on_success_callback
-        self.medicine_service = MedicineService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001')
+        self.medicine_service = MedicineService(store_id=store_id)
         self.logger = get_app_logger()
 
         self.is_edit_mode = medicine is not None
@@ -245,8 +246,9 @@ class MedicinesView(ctk.CTkFrame):
     def __init__(self, parent, user: User):
         super().__init__(parent, fg_color="transparent")
         self.user = user
-        self.medicine_service = MedicineService()
-        self.search_service = SearchService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001')
+        self.medicine_service = MedicineService(store_id=store_id)
+        self.search_service = SearchService(store_id=store_id)
         self.logger = get_app_logger()
 
         # Sorting Whitelist state

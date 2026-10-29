@@ -1,7 +1,7 @@
 """
 Search Service for Q13 - Faster Search & Retrieval.
 Implements optimized multi-filter queries, dynamic whitelisted sorting, partial text search,
-and query execution time benchmarking hooks.
+and query execution time benchmarking hooks with strict multi-store tenant isolation.
 """
 import time
 from datetime import datetime, timedelta
@@ -11,7 +11,7 @@ from models.medicine import Medicine, LOW_STOCK_THRESHOLD, EXPIRING_SOON_DAYS
 
 
 class SearchService:
-    """Provides high-performance search and retrieval operations across inventory records."""
+    """Provides high-performance search and retrieval operations across store inventory records."""
 
     # Whitelist of allowed column names for SQL ORDER BY clause (Security & Injection Defense)
     ALLOWED_SORT_FIELDS = {
@@ -38,8 +38,9 @@ class SearchService:
         "Expiry Latest": "expiry_date DESC"
     }
 
-    def __init__(self, db: Optional[Database] = None):
+    def __init__(self, db: Optional[Database] = None, store_id: Optional[str] = None):
         self.db = db or get_db()
+        self.store_id = store_id or "STORE-LEGACY-001"
 
     def search_medicines(
         self,
@@ -57,21 +58,21 @@ class SearchService:
     ) -> Tuple[List[Medicine], float]:
         """
         Executes a dynamic, parameterized search with filters and whitelisted sorting.
+        Enforces tenant isolation by always filtering on store_id.
         Returns a tuple of (List[Medicine], execution_time_ms).
         """
         start_time = time.perf_counter()
 
-        # Explicit column projection instead of SELECT *
         sql_base = """
-        SELECT medicine_id, medicine_code, medicine_name, category, manufacturer,
+        SELECT medicine_id, store_id, medicine_code, medicine_name, category, manufacturer,
                batch_no, price, quantity, expiry_date, created_at, updated_at
         FROM medicines
         """
 
-        where_clauses: List[str] = []
-        params: List[Any] = []
+        where_clauses: List[str] = ["store_id = ?"]
+        params: List[Any] = [self.store_id]
 
-        # 1. Text Search (Partial match across name, code, batch_no, manufacturer)
+        # 1. Text Search (Partial match across name, code, batch_no, manufacturer, category)
         if query_text and query_text.strip():
             clean_text = f"%{query_text.strip()}%"
             where_clauses.append(
@@ -125,8 +126,7 @@ class SearchService:
                 params.append(today_str)
 
         # Assemble WHERE clause
-        if where_clauses:
-            sql_base += " WHERE " + " AND ".join(where_clauses)
+        sql_base += " WHERE " + " AND ".join(where_clauses)
 
         # Determine Whitelisted Sorting Clause
         order_clause = "medicine_name ASC"
@@ -154,19 +154,19 @@ class SearchService:
     def quick_search(self, keyword: str, limit: int = 8) -> List[Medicine]:
         """
         Dashboard quick search helper for instant auto-complete popups.
-        Optimized for sub-millisecond response on typed input.
+        Optimized for sub-millisecond response on typed input within the active store.
         """
         if not keyword or not keyword.strip():
             return []
 
         search_pattern = f"%{keyword.strip()}%"
         query = """
-        SELECT medicine_id, medicine_code, medicine_name, category, manufacturer,
+        SELECT medicine_id, store_id, medicine_code, medicine_name, category, manufacturer,
                batch_no, price, quantity, expiry_date, created_at, updated_at
         FROM medicines
-        WHERE medicine_name LIKE ? OR medicine_code LIKE ? OR category LIKE ? OR manufacturer LIKE ?
+        WHERE store_id = ? AND (medicine_name LIKE ? OR medicine_code LIKE ? OR category LIKE ? OR manufacturer LIKE ?)
         ORDER BY medicine_name ASC
         LIMIT ?
         """
-        rows = self.db.fetch_all(query, (search_pattern, search_pattern, search_pattern, search_pattern, limit))
+        rows = self.db.fetch_all(query, (self.store_id, search_pattern, search_pattern, search_pattern, search_pattern, limit))
         return [Medicine.from_row(r) for r in rows]

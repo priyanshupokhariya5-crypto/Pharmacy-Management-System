@@ -27,14 +27,16 @@ class ReportsView(ctk.CTkFrame):
     def __init__(self, parent, user: User):
         super().__init__(parent, fg_color="transparent")
         self.user = user
-        self.report_gen = ReportGenerator()
-        self.medicine_service = MedicineService()
-        self.sales_service = SalesService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001')
+        self.report_gen = ReportGenerator(store_id=store_id)
+        self.medicine_service = MedicineService(store_id=store_id)
+        self.sales_service = SalesService(store_id=store_id)
         self.logger = get_app_logger()
 
         # Canvas references for canvas cleanup on refresh
         self.canvas_cat = None
         self.canvas_status = None
+        self._last_chart_sig = None
 
         self._build_ui()
         self.refresh_reports()
@@ -64,7 +66,7 @@ class ReportsView(ctk.CTkFrame):
             fg_color=Theme.PRIMARY,
             hover_color=Theme.PRIMARY_HOVER,
             text_color=Theme.TEXT_DARK,
-            command=self.refresh_reports
+            command=lambda: self.refresh_reports(force_charts=True)
         )
         refresh_btn.pack(side="right", padx=20, pady=12)
 
@@ -316,7 +318,7 @@ class ReportsView(ctk.CTkFrame):
         self.charts_container = ctk.CTkFrame(tab, fg_color="transparent")
         self.charts_container.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def refresh_reports(self) -> None:
+    def refresh_reports(self, force_charts: bool = False) -> None:
         """Re-queries SQLite database, rebuilds Pandas DataFrames, populates tables & Matplotlib figures."""
         # 1. Update KPI Summary Cards
         summary = self.medicine_service.get_inventory_summary()
@@ -382,8 +384,20 @@ class ReportsView(ctk.CTkFrame):
         else:
             self.sales_metrics_lbl.configure(text="No sales records available. Perform a sale in Billing to generate history.")
 
-        # 7. Render Embedded Matplotlib Figures
-        self._render_charts()
+        # 7. Render Embedded Matplotlib Figures if data changed or forced
+        current_chart_sig = (
+            summary["total_medicines"],
+            summary["total_stock_quantity"],
+            summary["total_inventory_value"],
+            summary["low_stock_count"],
+            summary["out_of_stock_count"],
+            summary["expired_count"],
+            sales_metrics["total_transactions"],
+            sales_metrics["total_sales_value"],
+        )
+        if force_charts or self._last_chart_sig != current_chart_sig:
+            self._render_charts()
+            self._last_chart_sig = current_chart_sig
 
         self.logger.log_event("REPORTS", "Analytical reports and Pandas DataFrames refreshed successfully.")
 
@@ -392,14 +406,20 @@ class ReportsView(ctk.CTkFrame):
         for widget in self.charts_container.winfo_children():
             widget.destroy()
 
+        import matplotlib.pyplot as plt
+
         # Canvas 1: Category Stock Chart
         fig1 = self.report_gen.generate_category_stock_chart()
         canvas1 = FigureCanvasTkAgg(fig1, master=self.charts_container)
         canvas1.draw()
         canvas1.get_tk_widget().pack(side="left", fill="both", expand=True, padx=5, pady=5)
+        self.canvas_cat = canvas1
+        plt.close(fig1)
 
         # Canvas 2: Stock Status Chart
         fig2 = self.report_gen.generate_stock_status_chart()
         canvas2 = FigureCanvasTkAgg(fig2, master=self.charts_container)
         canvas2.draw()
         canvas2.get_tk_widget().pack(side="right", fill="both", expand=True, padx=5, pady=5)
+        self.canvas_status = canvas2
+        plt.close(fig2)

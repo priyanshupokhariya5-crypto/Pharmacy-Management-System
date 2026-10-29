@@ -200,9 +200,10 @@ class BillingView(ctk.CTkFrame):
     def __init__(self, parent, user: User):
         super().__init__(parent, fg_color="transparent")
         self.user = user
-        self.sales_service = SalesService()
-        self.search_service = SearchService()
-        self.medicine_service = MedicineService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001')
+        self.sales_service = SalesService(store_id=store_id)
+        self.search_service = SearchService(store_id=store_id)
+        self.medicine_service = MedicineService(store_id=store_id)
         self.logger = get_app_logger()
 
         # Cart Data Structure: Dict[medicine_id, {"medicine": Medicine, "quantity": int, "subtotal": float}]

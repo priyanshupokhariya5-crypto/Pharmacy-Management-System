@@ -51,6 +51,7 @@ RISK_THRESHOLDS = [
 FMEA_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS fmea_records (
     fmea_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    store_id         TEXT    REFERENCES stores(store_id),
     process_module   TEXT    NOT NULL,
     failure_mode     TEXT    NOT NULL,
     potential_effect TEXT    NOT NULL,
@@ -77,6 +78,7 @@ CREATE INDEX IF NOT EXISTS idx_fmea_risk_level ON fmea_records(risk_level);
 CREATE INDEX IF NOT EXISTS idx_fmea_rpn        ON fmea_records(rpn);
 CREATE INDEX IF NOT EXISTS idx_fmea_process    ON fmea_records(process_module);
 CREATE INDEX IF NOT EXISTS idx_fmea_status     ON fmea_records(action_status);
+CREATE INDEX IF NOT EXISTS idx_fmea_store      ON fmea_records(store_id);
 """
 
 # ---------------------------------------------------------------------------
@@ -104,6 +106,7 @@ class FMEARecord:
     owner:                str = "Development Team"
     created_at:           Optional[str] = None
     updated_at:           Optional[str] = None
+    store_id:             Optional[str] = None
 
     @property
     def rpn(self) -> int:
@@ -181,6 +184,7 @@ class FMEARecord:
             owner=row["owner"],
             created_at=row["created_at"] if "created_at" in keys else None,
             updated_at=row["updated_at"] if "updated_at" in keys else None,
+            store_id=row["store_id"] if "store_id" in keys else None,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -203,6 +207,7 @@ class FMEARecord:
             "recommended_action":   self.recommended_action,
             "action_status":        self.action_status,
             "owner":                self.owner,
+            "store_id":             self.store_id,
         }
 
 
@@ -244,8 +249,9 @@ class FMEAService:
     calculations for FMEA records stored in the fmea_records SQLite table.
     """
 
-    def __init__(self, db: Optional[Database] = None):
+    def __init__(self, db: Optional[Database] = None, store_id: Optional[str] = None):
         self.db = db or get_db()
+        self.store_id = store_id or "STORE-LEGACY-001"
 
     # ------------------------------------------------------------------
     # Schema
@@ -260,17 +266,19 @@ class FMEAService:
     # ------------------------------------------------------------------
 
     def add_record(self, rec: FMEARecord) -> Tuple[bool, str]:
-        """Inserts a new FMEA record. RPN is computed server-side from S/O/D."""
+        """Inserts a new FMEA record scoped to the active store. RPN is computed server-side from S/O/D."""
         errors = rec.validate()
         if errors:
             return False, "; ".join(errors)
         computed_rpn = rec.rpn
         risk = rec.risk_level
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        target_store = rec.store_id or self.store_id
         try:
             self.db.execute(
                 """
                 INSERT INTO fmea_records (
+                    store_id,
                     process_module, failure_mode, potential_effect, potential_cause,
                     prevention_control, detection_control,
                     severity, severity_rationale,
@@ -278,9 +286,10 @@ class FMEAService:
                     detection, detection_rationale,
                     rpn, risk_level, recommended_action,
                     action_status, owner, created_at, updated_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
+                    target_store,
                     rec.process_module, rec.failure_mode, rec.potential_effect,
                     rec.potential_cause, rec.prevention_control, rec.detection_control,
                     rec.severity, rec.severity_rationale,
@@ -299,22 +308,24 @@ class FMEAService:
         sort_by: str = "rpn",
         sort_dir: str = "DESC",
     ) -> List[FMEARecord]:
-        """Returns all FMEA records ordered by the whitelisted sort column."""
+        """Returns all FMEA records for the active store ordered by the whitelisted sort column."""
         col = SORT_WHITELIST.get(sort_by.lower(), "rpn")
         direction = "DESC" if sort_dir.upper() == "DESC" else "ASC"
         rows = self.db.fetch_all(
-            f"SELECT * FROM fmea_records ORDER BY {col} {direction}"
+            f"SELECT * FROM fmea_records WHERE store_id = ? ORDER BY {col} {direction}",
+            (self.store_id,)
         )
         return [FMEARecord.from_row(r) for r in rows]
 
     def get_record_by_id(self, fmea_id: int) -> Optional[FMEARecord]:
         row = self.db.fetch_one(
-            "SELECT * FROM fmea_records WHERE fmea_id = ?", (fmea_id,)
+            "SELECT * FROM fmea_records WHERE fmea_id = ? AND store_id = ?",
+            (fmea_id, self.store_id)
         )
         return FMEARecord.from_row(row) if row else None
 
     def update_record(self, rec: FMEARecord) -> Tuple[bool, str]:
-        """Updates an existing FMEA record. RPN is recomputed from S/O/D."""
+        """Updates an existing FMEA record belonging to the active store. RPN is recomputed from S/O/D."""
         if rec.fmea_id is None:
             return False, "FMEA ID required for update."
         errors = rec.validate()
@@ -334,7 +345,7 @@ class FMEAService:
                     detection=?, detection_rationale=?,
                     rpn=?, risk_level=?, recommended_action=?,
                     action_status=?, owner=?, updated_at=?
-                WHERE fmea_id=?
+                WHERE fmea_id=? AND store_id=?
                 """,
                 (
                     rec.process_module, rec.failure_mode, rec.potential_effect,
@@ -344,7 +355,7 @@ class FMEAService:
                     rec.detection, rec.detection_rationale,
                     computed_rpn, risk, rec.recommended_action,
                     rec.action_status, rec.owner, now,
-                    rec.fmea_id,
+                    rec.fmea_id, self.store_id
                 ),
             )
             return True, "FMEA record updated successfully."
@@ -352,10 +363,11 @@ class FMEAService:
             return False, str(e)
 
     def delete_record(self, fmea_id: int) -> Tuple[bool, str]:
-        """Deletes an FMEA record by ID."""
+        """Deletes an FMEA record by ID within the active store."""
         try:
             self.db.execute(
-                "DELETE FROM fmea_records WHERE fmea_id = ?", (fmea_id,)
+                "DELETE FROM fmea_records WHERE fmea_id = ? AND store_id = ?",
+                (fmea_id, self.store_id)
             )
             return True, "FMEA record deleted."
         except Exception as e:
@@ -376,14 +388,14 @@ class FMEAService:
         sort_dir: str = "DESC",
     ) -> List[FMEARecord]:
         """
-        Returns filtered FMEA records. All filter conditions are combined (AND).
+        Returns filtered FMEA records for the active store. All filter conditions are combined (AND).
         Sort column is whitelisted against SQL injection.
         """
         col = SORT_WHITELIST.get(sort_by.lower(), "rpn")
         direction = "DESC" if sort_dir.upper() == "DESC" else "ASC"
 
-        conditions: List[str] = []
-        params: List[Any] = []
+        conditions: List[str] = ["store_id = ?"]
+        params: List[Any] = [self.store_id]
 
         if process_module:
             conditions.append("process_module LIKE ?")
@@ -401,7 +413,7 @@ class FMEAService:
             conditions.append("rpn <= ?")
             params.append(max_rpn)
 
-        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where = f"WHERE {' AND '.join(conditions)}"
         rows = self.db.fetch_all(
             f"SELECT * FROM fmea_records {where} ORDER BY {col} {direction}",
             tuple(params),
@@ -414,7 +426,7 @@ class FMEAService:
 
     def get_risk_audit(self) -> Dict[str, Any]:
         """
-        Computes risk audit statistics from all current FMEA records.
+        Computes risk audit statistics from active store's FMEA records.
         Returns counts per risk level, top-5 risks, open actions, etc.
         """
         records = self.get_all_records(sort_by="rpn", sort_dir="DESC")
@@ -452,7 +464,8 @@ class FMEAService:
 
     def get_distinct_processes(self) -> List[str]:
         rows = self.db.fetch_all(
-            "SELECT DISTINCT process_module FROM fmea_records ORDER BY process_module"
+            "SELECT DISTINCT process_module FROM fmea_records WHERE store_id = ? ORDER BY process_module",
+            (self.store_id,)
         )
         return [r["process_module"] for r in rows]
 
@@ -809,11 +822,11 @@ SEED_FMEA_RECORDS = [
 
 def seed_fmea_data(db: Database) -> None:
     """Seeds initial FMEA records if the table is empty. Idempotent."""
-    count_row = db.fetch_one("SELECT COUNT(*) as cnt FROM fmea_records")
+    count_row = db.fetch_one("SELECT COUNT(*) as cnt FROM fmea_records WHERE store_id = 'STORE-LEGACY-001'")
     if count_row and count_row["cnt"] > 0:
         return  # Already seeded
 
-    svc = FMEAService(db)
+    svc = FMEAService(db, store_id="STORE-LEGACY-001")
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for rec_dict in SEED_FMEA_RECORDS:
         s = rec_dict["severity"]
@@ -824,6 +837,7 @@ def seed_fmea_data(db: Database) -> None:
         db.execute(
             """
             INSERT INTO fmea_records (
+                store_id,
                 process_module, failure_mode, potential_effect, potential_cause,
                 prevention_control, detection_control,
                 severity, severity_rationale,
@@ -831,9 +845,10 @@ def seed_fmea_data(db: Database) -> None:
                 detection, detection_rationale,
                 rpn, risk_level, recommended_action,
                 action_status, owner, created_at, updated_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
+                "STORE-LEGACY-001",
                 rec_dict["process_module"],
                 rec_dict["failure_mode"],
                 rec_dict["potential_effect"],
