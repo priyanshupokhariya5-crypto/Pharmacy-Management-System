@@ -25,26 +25,28 @@ class MedicineFormModal(ctk.CTkToplevel):
         self.user = user
         self.medicine = medicine
         self.on_success_callback = on_success_callback
-        self.medicine_service = MedicineService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001')
+        self.medicine_service = MedicineService(store_id=store_id)
         self.logger = get_app_logger()
 
         self.is_edit_mode = medicine is not None
         title_text = f"Edit Medicine - {medicine.medicine_name}" if self.is_edit_mode else "Add New Medicine"
         
         self.title(title_text)
-        self.geometry("520x640")
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        modal_w = 520
+        modal_h = min(620, max(460, int(screen_h * 0.82)))
+        x = max(0, (screen_w - modal_w) // 2)
+        y = max(0, (screen_h - modal_h) // 2)
+        self.geometry(f"{modal_w}x{modal_h}+{x}+{y}")
+        self.minsize(440, 420)
         self.resizable(False, False)
         self.configure(fg_color=Theme.BG_DARK)
 
         # Make modal stay on top & grab focus
         self.transient(parent)
         self.grab_set()
-
-        # Center relative to parent window
-        self.update_idletasks()
-        x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (260)
-        y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (320)
-        self.geometry(f"+{max(0, x)}+{max(0, y)}")
 
         self._build_ui()
 
@@ -84,21 +86,56 @@ class MedicineFormModal(ctk.CTkToplevel):
         )
         self.err_label.pack(pady=(0, 5))
 
-        # Form Scrollable Area
+
+
+        # Action Buttons (Fixed Footer at bottom)
+        btn_frame = ctk.CTkFrame(card, fg_color="transparent")
+        btn_frame.pack(side="bottom", fill="x", padx=15, pady=(0, 15))
+
+        save_btn_text = "Update Medicine" if self.is_edit_mode else "Save Medicine"
+        self.save_btn = ctk.CTkButton(
+            btn_frame,
+            text=save_btn_text,
+            font=Theme.FONT_BOLD,
+            height=38,
+            fg_color=Theme.PRIMARY,
+            hover_color=Theme.PRIMARY_HOVER,
+            text_color=Theme.TEXT_DARK,
+            command=self._save_medicine
+        )
+        self.save_btn.pack(side="right", padx=(5, 0), expand=True, fill="x")
+
+        self.cancel_btn = ctk.CTkButton(
+            btn_frame,
+            text="Cancel",
+            font=Theme.FONT_BODY,
+            height=38,
+            fg_color=Theme.INPUT_BG,
+            hover_color=Theme.BORDER_COLOR,
+            text_color=Theme.TEXT_MAIN,
+            command=self.destroy
+        )
+        self.cancel_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
+
+        # Form Scrollable Area (Middle - fills remaining space)
         form_frame = ctk.CTkScrollableFrame(card, fg_color="transparent")
-        form_frame.pack(fill="both", expand=True, padx=15, pady=(0, 10))
+        form_frame.pack(side="top", fill="both", expand=True, padx=15, pady=(0, 10))
 
         # Form Fields Configuration
         self.entries: Dict[str, ctk.CTkEntry] = {}
+        from datetime import datetime
+        today_iso = datetime.now().strftime("%Y-%m-%d")
+
         fields = [
-            ("code", "Medicine Code (Unique)", "e.g. MED1017"),
-            ("name", "Medicine Name", "e.g. Dolo 650mg"),
-            ("category", "Category", "e.g. Analgesic"),
-            ("manufacturer", "Manufacturer", "e.g. Micro Labs"),
-            ("batch", "Batch Number", "e.g. B202615"),
-            ("price", "Price (₹)", "e.g. 15.50"),
-            ("quantity", "Stock Quantity", "e.g. 100"),
-            ("expiry", "Expiry Date (YYYY-MM-DD)", "e.g. 2027-06-30")
+            ("code", "Medicine Code (Unique)*", "e.g. MED1017"),
+            ("name", "Medicine Name*", "e.g. Dolo 650mg"),
+            ("category", "Category*", "e.g. Analgesic"),
+            ("manufacturer", "Manufacturer*", "e.g. Micro Labs"),
+            ("batch", "Batch Number*", "e.g. B202615"),
+            ("price", "Selling Price (₹)*", "e.g. 15.50"),
+            ("quantity", "Stock Quantity*", "e.g. 100"),
+            ("mfg", "Manufacturing Date (YYYY-MM-DD)*", f"e.g. {today_iso}"),
+            ("expiry", "Expiry Date (YYYY-MM-DD)*", "e.g. 2027-06-30")
         ]
 
         for key, label_text, placeholder in fields:
@@ -108,18 +145,37 @@ class MedicineFormModal(ctk.CTkToplevel):
                 font=Theme.FONT_BOLD,
                 anchor="w"
             )
-            lbl.pack(fill="x", pady=(6, 2))
+            lbl.pack(fill="x", pady=(5, 1))
 
             entry = ctk.CTkEntry(
                 form_frame,
                 placeholder_text=placeholder,
-                height=36,
+                height=34,
                 font=Theme.FONT_BODY,
                 border_color=Theme.BORDER_COLOR,
             )
-            entry.pack(fill="x", pady=(0, 6))
+            entry.pack(fill="x", pady=(0, 5))
             self.entries[key] = entry
 
+        # Shelf / Rack Location (Combobox + manual entry)
+        shelf_lbl = ctk.CTkLabel(
+            form_frame,
+            text="Shelf / Rack Location (Required)*",
+            font=Theme.FONT_BOLD,
+            anchor="w"
+        )
+        shelf_lbl.pack(fill="x", pady=(5, 1))
+
+        shelf_options = ["SHELF-A01", "SHELF-A02", "SHELF-B01", "SHELF-B02", "SHELF-COLD", "SHELF-QUAR"]
+        self.shelf_combo = ctk.CTkComboBox(
+            form_frame,
+            values=shelf_options,
+            height=34,
+            font=Theme.FONT_BODY,
+            border_color=Theme.BORDER_COLOR
+        )
+        self.shelf_combo.set("SHELF-A01")
+        self.shelf_combo.pack(fill="x", pady=(0, 8))
         # Pre-populate fields if in Edit Mode
         if self.is_edit_mode and self.medicine:
             self.entries["code"].insert(0, self.medicine.medicine_code)
@@ -129,32 +185,23 @@ class MedicineFormModal(ctk.CTkToplevel):
             self.entries["batch"].insert(0, self.medicine.batch_no)
             self.entries["price"].insert(0, str(self.medicine.price))
             self.entries["quantity"].insert(0, str(self.medicine.quantity))
+            self.entries["mfg"].insert(0, today_iso)
             self.entries["expiry"].insert(0, self.medicine.expiry_date)
-
-        # Action Buttons
-        btn_frame = ctk.CTkFrame(card, fg_color="transparent")
-        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
-
-        save_btn_text = "Update Medicine" if self.is_edit_mode else "Save Medicine"
-        save_btn = ctk.CTkButton(
-            btn_frame,
-            text=save_btn_text,
-            font=Theme.FONT_BOLD,
-            height=38,
-            hover_color=Theme.PRIMARY_HOVER,
-            command=self._save_medicine
-        )
-        save_btn.pack(side="right", padx=(5, 0), expand=True, fill="x")
-
-        cancel_btn = ctk.CTkButton(
-            btn_frame,
-            text="Cancel",
-            font=Theme.FONT_BODY,
-            height=38,
-            hover_color=Theme.BORDER_COLOR,
-            command=self.destroy
-        )
-        cancel_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
+            # Pre-select shelf if found
+            if hasattr(self.medicine_service, "db") and self.medicine_service.db:
+                b_row = self.medicine_service.db.fetch_one(
+                    """
+                    SELECT sl.shelf_code FROM inventory_batches b
+                    JOIN storage_locations sl ON b.location_id = sl.location_id
+                    WHERE b.medicine_id = ? AND b.store_id = ?
+                    ORDER BY b.expiry_date ASC LIMIT 1
+                    """,
+                    (self.medicine.medicine_id, getattr(self.user, "store_id", "STORE-LEGACY-001"))
+                )
+                if b_row and b_row["shelf_code"]:
+                    self.shelf_combo.set(b_row["shelf_code"])
+        else:
+            self.entries["mfg"].insert(0, today_iso)
 
     def _save_medicine(self) -> None:
         """Validates inputs and performs Add or Update database operation."""
@@ -165,7 +212,9 @@ class MedicineFormModal(ctk.CTkToplevel):
         batch = self.entries["batch"].get().strip()
         price_raw = self.entries["price"].get().strip()
         qty_raw = self.entries["quantity"].get().strip()
+        mfg_date = self.entries["mfg"].get().strip()
         expiry = self.entries["expiry"].get().strip()
+        shelf = self.shelf_combo.get().strip()
 
         # Poka-Yoke Validation Checks
         errors = []
@@ -179,6 +228,8 @@ class MedicineFormModal(ctk.CTkToplevel):
             errors.append("Manufacturer is required.")
         if not batch:
             errors.append("Batch number is required.")
+        if not shelf:
+            errors.append("Shelf / Rack Location is required.")
 
         try:
             price_val = float(price_raw)
@@ -194,13 +245,27 @@ class MedicineFormModal(ctk.CTkToplevel):
         except ValueError:
             errors.append("Quantity must be a valid integer number (e.g. 100).")
 
-        if not expiry:
-            errors.append("Expiry date is required.")
+        mfg_dt = None
+        if not mfg_date:
+            errors.append("Manufacturing date is required (YYYY-MM-DD).")
         else:
             try:
-                datetime.strptime(expiry, "%Y-%m-%d")
+                mfg_dt = datetime.strptime(mfg_date, "%Y-%m-%d")
+            except ValueError:
+                errors.append("Manufacturing date must be a valid date in YYYY-MM-DD format.")
+
+        exp_dt = None
+        if not expiry:
+            errors.append("Expiry date is required (YYYY-MM-DD).")
+        else:
+            try:
+                exp_dt = datetime.strptime(expiry, "%Y-%m-%d")
             except ValueError:
                 errors.append("Expiry date must be a valid date in YYYY-MM-DD format.")
+
+        if mfg_dt and exp_dt:
+            if exp_dt <= mfg_dt:
+                errors.append("Expiry date must be strictly later than manufacturing date.")
 
         if errors:
             err_msg = "\n".join(errors)
@@ -224,9 +289,13 @@ class MedicineFormModal(ctk.CTkToplevel):
 
         # Execute DB Operation
         if self.is_edit_mode:
-            success, msg = self.medicine_service.update_medicine(med_obj)
+            success, msg = self.medicine_service.update_medicine(
+                med_obj, shelf_code=shelf, acting_user=self.user
+            )
         else:
-            success, msg = self.medicine_service.add_medicine(med_obj)
+            success, msg = self.medicine_service.add_medicine(
+                med_obj, shelf_code=shelf, mfg_date=mfg_date, acting_user=self.user
+            )
 
         if success:
             self.logger.log_event("INVENTORY", f"Medicine '{name}' ({code}) {'updated' if self.is_edit_mode else 'added'} by '{self.user.username}'")
@@ -245,8 +314,9 @@ class MedicinesView(ctk.CTkFrame):
     def __init__(self, parent, user: User):
         super().__init__(parent, fg_color="transparent")
         self.user = user
-        self.medicine_service = MedicineService()
-        self.search_service = SearchService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001')
+        self.medicine_service = MedicineService(store_id=store_id)
+        self.search_service = SearchService(store_id=store_id)
         self.logger = get_app_logger()
 
         # Sorting Whitelist state
@@ -452,7 +522,7 @@ class MedicinesView(ctk.CTkFrame):
 
         columns = (
             "id", "code", "name", "category", "manufacturer",
-            "batch", "price", "quantity", "expiry", "stock_status", "expiry_status"
+            "batch", "shelf", "price", "quantity", "expiry", "stock_status", "expiry_status"
         )
         self.tree = ttk.Treeview(
             table_container,
@@ -465,17 +535,18 @@ class MedicinesView(ctk.CTkFrame):
 
         # Column Headers Configuration
         headers = [
-            ("id", "ID", 40),
-            ("code", "Code ↕", 90),
-            ("name", "Medicine Name ↕", 180),
-            ("category", "Category ↕", 110),
-            ("manufacturer", "Manufacturer ↕", 120),
+            ("id", "ID", 35),
+            ("code", "Code ↕", 80),
+            ("name", "Medicine Name ↕", 160),
+            ("category", "Category ↕", 100),
+            ("manufacturer", "Manufacturer ↕", 110),
             ("batch", "Batch No", 80),
-            ("price", "Price (₹) ↕", 80),
-            ("quantity", "Qty ↕", 65),
-            ("expiry", "Expiry Date ↕", 95),
-            ("stock_status", "Stock Status", 100),
-            ("expiry_status", "Expiry Status", 100)
+            ("shelf", "Shelf / Rack", 85),
+            ("price", "Price (₹) ↕", 75),
+            ("quantity", "Qty ↕", 55),
+            ("expiry", "Expiry Date ↕", 85),
+            ("stock_status", "Stock Status", 85),
+            ("expiry_status", "Expiry Status", 85)
         ]
 
         for col_id, title, width in headers:
@@ -498,17 +569,34 @@ class MedicinesView(ctk.CTkFrame):
         self.tree.bind("<Double-1>", lambda e: self._on_edit_medicine())
 
     def populate_dropdowns(self) -> None:
-        """Populates category and manufacturer filter dropdowns with live DB values."""
+        """Populates category and manufacturer filter dropdowns with live DB values while preserving active filter state."""
+        curr_cat = self.cat_menu.get() if hasattr(self, "cat_menu") else "All"
+        curr_mfr = self.mfr_menu.get() if hasattr(self, "mfr_menu") else "All"
+
         categories = ["All"] + self.medicine_service.get_categories()
         manufacturers = ["All"] + self.medicine_service.get_manufacturers()
 
         self.cat_menu.configure(values=categories)
         self.mfr_menu.configure(values=manufacturers)
 
+        if curr_cat in categories:
+            self.cat_menu.set(curr_cat)
+        else:
+            self.cat_menu.set("All")
+
+        if curr_mfr in manufacturers:
+            self.mfr_menu.set(curr_mfr)
+        else:
+            self.mfr_menu.set("All")
+
     def refresh_table(self) -> None:
-        """Reloads medicine records from database and updates dropdowns."""
-        self.populate_dropdowns()
-        self.apply_filters()
+        """Reloads medicine records from database and updates dropdowns safely with selection persistence."""
+        try:
+            self.populate_dropdowns()
+            self.apply_filters()
+        except Exception as e:
+            self.logger.log_poka_yoke("Medicine Refresh Error", f"Failed to refresh medicines: {e}")
+            messagebox.showerror("Refresh Error", f"Failed to refresh medicine inventory:\n{e}", parent=self)
 
     def _reset_filters(self) -> None:
         """Resets all filter controls to default states."""
@@ -521,6 +609,10 @@ class MedicinesView(ctk.CTkFrame):
 
     def apply_filters(self) -> None:
         """Retrieves filtered and sorted records from SearchService and populates Treeview."""
+        # Remember current selection before rebuilding rows
+        selected_iids = self.tree.selection()
+        prev_selected = selected_iids[0] if selected_iids else None
+
         text_query = self.search_entry.get().strip()
         cat = self.cat_menu.get()
         mfr = self.mfr_menu.get()
@@ -551,8 +643,40 @@ class MedicinesView(ctk.CTkFrame):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        # Populate treeview
+        # Build batch and shelf resolution map
+        shelf_map = {}
+        batch_map = {}
+        if hasattr(self.medicine_service, "db") and self.medicine_service.db:
+            t_check = self.medicine_service.db.fetch_one("SELECT name FROM sqlite_master WHERE type='table' AND name='inventory_batches'")
+            if t_check:
+                b_rows = self.medicine_service.db.fetch_all(
+                    """
+                    SELECT b.medicine_id, b.batch_number, COALESCE(sl.shelf_code, 'SHELF-A01') as shelf_code
+                    FROM inventory_batches b
+                    LEFT JOIN storage_locations sl ON b.location_id = sl.location_id
+                    WHERE b.store_id = ? AND b.status IN ('Active', 'AVAILABLE')
+                    ORDER BY (CASE WHEN b.current_quantity > 0 THEN 0 ELSE 1 END), b.expiry_date ASC
+                    """,
+                    (self.user.store_id,)
+                )
+                for br in b_rows:
+                    m_id = br["medicine_id"]
+                    if m_id not in shelf_map:
+                        shelf_map[m_id] = br["shelf_code"]
+                        batch_map[m_id] = br["batch_number"]
+
+        # Populate treeview with real batch and shelf locations
         for med in medicines:
+            real_batch = batch_map.get(med.medicine_id, med.batch_no)
+            if real_batch == "INITIAL":
+                real_batch = f"BCH-{med.medicine_code}"
+            
+            shelf_val = shelf_map.get(
+                med.medicine_id,
+                "SHELF-COLD" if "insulin" in med.medicine_name.lower()
+                else ("SHELF-QUAR" if med.is_expired else "SHELF-A01")
+            )
+
             self.tree.insert(
                 "",
                 "end",
@@ -563,7 +687,8 @@ class MedicinesView(ctk.CTkFrame):
                     med.medicine_name,
                     med.category,
                     med.manufacturer,
-                    med.batch_no,
+                    real_batch,
+                    shelf_val,
                     f"₹{med.price:.2f}",
                     med.quantity,
                     med.expiry_date,
@@ -573,6 +698,11 @@ class MedicinesView(ctk.CTkFrame):
             )
 
         self.records_lbl.configure(text=f"Showing: {len(medicines)} records")
+
+        # Restore selection if row still exists
+        if prev_selected and self.tree.exists(prev_selected):
+            self.tree.selection_set(prev_selected)
+            self.tree.focus(prev_selected)
 
     def _on_header_click(self, col_id: str) -> None:
         """Toggles column sorting order for whitelisted sortable columns."""
@@ -595,7 +725,7 @@ class MedicinesView(ctk.CTkFrame):
 
     def _on_add_medicine(self) -> None:
         """Opens Add Medicine modal form."""
-        MedicineFormModal(self, self.user, medicine=None, on_success_callback=self.refresh_table)
+        self._active_modal = MedicineFormModal(self, self.user, medicine=None, on_success_callback=self.refresh_table)
 
     def _on_edit_medicine(self) -> None:
         """Opens Edit Medicine modal form for selected medicine."""
@@ -603,17 +733,17 @@ class MedicinesView(ctk.CTkFrame):
         if not med:
             messagebox.showwarning("Select Medicine", "Please select a medicine from the table to edit.")
             return
-        MedicineFormModal(self, self.user, medicine=med, on_success_callback=self.refresh_table)
+        self._active_modal = MedicineFormModal(self, self.user, medicine=med, on_success_callback=self.refresh_table)
 
     def _on_delete_medicine(self) -> None:
-        """Handles medicine deletion with role-based permission check & confirmation modal."""
-        # 1. Role-based Permission Check (Poka-Yoke)
+        """Handles medicine deletion with role-based permission check & automatic archival of items with history."""
+        # 1. Role-based Permission Check
         if not self.user.is_admin:
             messagebox.showerror(
                 "Permission Denied",
-                "PERMISSION BLOCK: Only Admin users can delete medicines from inventory."
+                "PERMISSION BLOCK: Only Owner and Admin users can delete or archive medicines."
             )
-            self.logger.log_poka_yoke("Permission Block", f"Pharmacist '{self.user.username}' attempted to delete medicine.")
+            self.logger.log_poka_yoke("Permission Block", f"User '{self.user.username}' attempted to delete medicine.")
             return
 
         med = self._get_selected_medicine()
@@ -621,20 +751,31 @@ class MedicinesView(ctk.CTkFrame):
             messagebox.showwarning("Select Medicine", "Please select a medicine from the table to delete.")
             return
 
-        # 2. Confirmation Dialog
+        # 2. Check dependencies across batches, sales, purchases, stock movements
+        deps = self.medicine_service.check_delete_dependencies(med.medicine_id)
+        if not deps["can_delete"]:
+            # Automatic safe archival to protect historical data without redundant confirmation prompt
+            arc_ok, arc_msg = self.medicine_service.deactivate_medicine(med.medicine_id, acting_user=self.user)
+            if arc_ok:
+                self.logger.log_event("INVENTORY", f"Medicine '{med.medicine_name}' ({med.medicine_code}) automatically archived by '{self.user.username}' to preserve historical audit trail.")
+                messagebox.showinfo("Success", "Medicine archived successfully. Historical records have been preserved.")
+                self.refresh_table()
+            else:
+                messagebox.showerror("Archive Error", f"Unable to archive medicine: {arc_msg}")
+            return
+
+        # 3. If zero dependencies, ask single standard confirmation for permanent deletion
         confirm = messagebox.askyesno(
             "Confirm Deletion",
-            f"Are you sure you want to delete '{med.medicine_name}' ({med.medicine_code})?\n\nThis action cannot be undone."
+            f"Are you sure you want to permanently delete '{med.medicine_name}' ({med.medicine_code})?\n\nThis medicine has zero transaction history. This action cannot be undone."
         )
         if not confirm:
             return
 
-        # 3. Perform Deletion via Service
-        success, msg = self.medicine_service.delete_medicine(med.medicine_id)
+        success, msg = self.medicine_service.delete_medicine(med.medicine_id, acting_user=self.user)
         if success:
-            self.logger.log_event("INVENTORY", f"Medicine ID {med.medicine_id} ('{med.medicine_name}') deleted by Admin '{self.user.username}'.")
-            messagebox.showinfo("Success", msg)
+            self.logger.log_event("INVENTORY", f"Medicine ID {med.medicine_id} ('{med.medicine_name}') deleted by '{self.user.username}'.")
+            messagebox.showinfo("Success", "Medicine deleted successfully.")
             self.refresh_table()
         else:
-            self.logger.log_poka_yoke("Delete Blocked", f"FK Protection blocked deleting medicine ID {med.medicine_id}: {msg}")
-            messagebox.showerror("Deletion Blocked", msg)
+            messagebox.showerror("Deletion Error", msg)

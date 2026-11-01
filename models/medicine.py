@@ -22,10 +22,12 @@ class Medicine:
     expiry_date: str  # YYYY-MM-DD
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    store_id: Optional[str] = None
 
     @classmethod
     def from_row(cls, row) -> "Medicine":
         """Factory method to construct a Medicine model from an SQLite row."""
+        keys = row.keys() if hasattr(row, "keys") else []
         return cls(
             medicine_id=row["medicine_id"],
             medicine_code=row["medicine_code"],
@@ -36,8 +38,9 @@ class Medicine:
             price=float(row["price"]),
             quantity=int(row["quantity"]),
             expiry_date=row["expiry_date"],
-            created_at=row["created_at"] if "created_at" in row.keys() else None,
-            updated_at=row["updated_at"] if "updated_at" in row.keys() else None
+            created_at=row["created_at"] if "created_at" in keys else None,
+            updated_at=row["updated_at"] if "updated_at" in keys else None,
+            store_id=row["store_id"] if "store_id" in keys else None
         )
 
     def validate(self) -> List[str]:
@@ -135,5 +138,6 @@ class Medicine:
             "quantity": self.quantity,
             "expiry_date": self.expiry_date,
             "stock_status": self.stock_status,
-            "expiry_status": self.expiry_status
+            "expiry_status": self.expiry_status,
+            "store_id": self.store_id
         }
