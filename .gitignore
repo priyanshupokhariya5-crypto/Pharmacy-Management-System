@@ -33,8 +33,28 @@ env/
 
 # Local Database
 data/*.db
+server/*.db
+*.db
 !data/.gitkeep
 
 # Logs
 *.log
 *.bak
+
+# Environment and Secrets
+.env
+.env.local
+
+# Generated Invoices
+invoices/*.pdf
+!invoices/.gitkeep
+
+# Backups
+reports/backups/
+backups/
+*.bundle
+*.zip
+
+# Development Test Credentials (Never commit test credentials)
+docs/DEV_TEST_CREDENTIALS.md
+*DEV_TEST_CREDENTIALS*

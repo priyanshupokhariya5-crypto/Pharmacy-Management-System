@@ -1,0 +1,361 @@
+"""
+Main Application Window Content.
+
+Exported as MainWindowContent (a CTkFrame) so it can be embedded
+inside PharmacyApp (the single root window) without opening a second
+window.
+
+For backward compatibility the class is also aliased as MainWindow
+(the old entry point used by tests that import it).
+"""
+import os
+import tkinter as tk
+from typing import Callable, Optional
+import customtkinter as ctk
+
+from ui.theme import Theme
+from ui.dashboard import DashboardView
+from models.user import User
+from utils.logger import get_app_logger
+
+
+# Feature toggle to temporarily restrict active application navigation to Review 1 & 2.
+# Review 3 (FMEA Clinical Risk) and Review 4 (SQC & Kaizen) modules are preserved but kept inactive.
+ENABLE_REVIEW3_4_FEATURES = os.environ.get("ENABLE_REVIEW3_4_FEATURES", "0").lower() in ("1", "true", "yes")
+
+class MainWindowContent(ctk.CTkFrame):
+    """
+    All main-window chrome (top bar, sidebar, content area) as a Frame.
+    Embedded inside PharmacyApp root – no separate Tk/CTk root needed.
+    """
+
+    def __init__(self, parent, user: User,
+                 on_logout_callback: Optional[Callable[[], None]] = None,
+                 **kwargs):
+        super().__init__(parent, fg_color=Theme.BG_DARK, **kwargs)
+        self.user = user
+        self.on_logout_callback = on_logout_callback
+        self.logger = get_app_logger()
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        """Constructs top header, left sidebar navigation, and main content area."""
+        # -------------------------------------------------- Top Header
+        self.header_frame = ctk.CTkFrame(
+            self, fg_color=Theme.BG_HEADER, corner_radius=0, height=50
+        )
+        self.header_frame.pack(side="top", fill="x")
+        self.header_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            self.header_frame,
+            text="🏥  Pharmacy Management System",
+            font=Theme.FONT_HEADING,
+            text_color=Theme.TEXT_MAIN,
+        ).pack(side="left", padx=20, pady=10)
+
+        ctk.CTkButton(
+            self.header_frame, text="Logout",
+            width=75, height=28, font=Theme.FONT_SMALL,
+            fg_color=Theme.DANGER, hover_color="#e05f7e",
+            text_color=Theme.TEXT_DARK, command=self._handle_logout,
+        ).pack(side="right", padx=10, pady=10)
+
+        store_name = getattr(self.user, 'store_name', 'Pharmacy Store')
+        owner_name = getattr(self.user, 'full_name', '') or self.user.username
+        ctk.CTkLabel(
+            self.header_frame,
+            text=f"🏥  {store_name}  |  👤 {owner_name} ({self.user.role})",
+            font=Theme.FONT_SUBHEADING, text_color=Theme.PRIMARY,
+        ).pack(side="right", padx=(10, 0), pady=10)
+
+        # -------------------------------------------------- Body row
+        self.body_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.body_frame.pack(side="top", fill="both", expand=True)
+
+        # -------------------------------------------------- Sidebar
+        self.sidebar_frame = ctk.CTkFrame(
+            self.body_frame,
+            fg_color=Theme.BG_SIDEBAR, corner_radius=0, width=210,
+        )
+        self.sidebar_frame.pack(side="left", fill="y")
+        self.sidebar_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            self.sidebar_frame, text="NAVIGATION",
+            font=Theme.FONT_SMALL, text_color=Theme.TEXT_MUTED, anchor="w",
+        ).pack(fill="x", padx=20, pady=(20, 10))
+
+        self.nav_buttons: dict = {}
+        canonical = self.user.canonical_role
+
+        if canonical == "Cashier":
+            nav_items = [
+                ("Dashboard",  "📊  Dashboard",       True),
+                ("Billing",    "🛒  Sales & Billing", False),
+                ("Search",     "🔍  Medicine Lookup", False),
+            ]
+        elif canonical == "Pharmacist":
+            nav_items = [
+                ("Dashboard",  "📊  Dashboard",           True),
+                ("Medicines",  "💊  Medicines",           False),
+                ("Batches",    "🏷️  Batches & Expiry",    False),
+                ("Search",     "🔍  Advanced Search",     False),
+            ]
+            if ENABLE_REVIEW3_4_FEATURES:
+                nav_items.append(("FMEA", "🛡️  FMEA & Clinical Risk", False))
+        elif canonical == "Inventory Manager":
+            nav_items = [
+                ("Dashboard",  "📊  Dashboard",           True),
+                ("Medicines",  "💊  Medicines",           False),
+                ("Batches",    "🏷️  Batches & Expiry",    False),
+                ("Purchases",  "📦  Purchasing & POs",    False),
+                ("Search",     "🔍  Advanced Search",     False),
+            ]
+            if ENABLE_REVIEW3_4_FEATURES:
+                nav_items.append(("SQC", "📋  SQC & Quality", False))
+        else:
+            # Owner / Admin (Full Access - Review 1 & 2 Active by Default)
+            nav_items = [
+                ("Dashboard",  "📊  Dashboard",           True),
+                ("Medicines",  "💊  Medicines",           False),
+                ("Batches",    "🏷️  Batches & Expiry",    False),
+                ("Purchases",  "📦  Purchasing & POs",    False),
+                ("Suppliers",  "🚚  Suppliers",           False),
+                ("Search",     "🔍  Advanced Search",     False),
+                ("Billing",    "🛒  Sales & Billing",     False),
+                ("Staff",      "👥  Staff Accounts",      False),
+                ("Reports",    "📈  Reports & Analytics", False),
+            ]
+            if ENABLE_REVIEW3_4_FEATURES:
+                nav_items.extend([
+                    ("FMEA", "🛡️  FMEA & Risk Audit", False),
+                    ("SQC",  "📋  SQC & Kaizen",     False),
+                ])
+
+        self.allowed_nav_keys = {item[0] for item in nav_items}
+
+        for key, label_text, is_active in nav_items:
+            btn = ctk.CTkButton(
+                self.sidebar_frame, text=label_text,
+                font=Theme.FONT_BODY, height=38, anchor="w",
+                fg_color=Theme.PRIMARY if is_active else "transparent",
+                text_color=Theme.TEXT_DARK if is_active else Theme.TEXT_SIDEBAR,
+                hover_color=Theme.PRIMARY_HOVER,
+                command=lambda k=key: self._on_nav_click(k),
+            )
+            btn.pack(fill="x", padx=12, pady=3)
+            self.nav_buttons[key] = btn
+
+        ctk.CTkButton(
+            self.sidebar_frame, text="🚪  Logout",
+            font=Theme.FONT_BODY, height=38, anchor="w",
+            fg_color="transparent", text_color=Theme.DANGER,
+            hover_color=Theme.INPUT_BG, command=self._handle_logout,
+        ).pack(side="bottom", fill="x", padx=12, pady=20)
+
+        # -------------------------------------------------- Content area
+        self.content_container = ctk.CTkFrame(
+            self.body_frame, fg_color="transparent"
+        )
+        self.content_container.pack(
+            side="right", fill="both", expand=True, padx=14, pady=14
+        )
+
+        # Instantiate all views (hidden until navigated to)
+        self.dashboard_view  = DashboardView(self.content_container, self.user, on_navigate_callback=self._on_nav_click)
+        self.dashboard_view.pack(fill="both", expand=True)   # first visible
+
+        self.medicines_view  = None
+        self.batches_view    = None
+        self.purchases_view  = None
+        self.suppliers_view  = None
+        self.search_view     = None
+        self.billing_view    = None
+        self.reports_view    = None
+        self.fmea_view       = None
+        self.sqc_view        = None
+        self.staff_view      = None
+
+        self.current_nav = "Dashboard"
+
+        # Background pre-warm for fast section switching without UI blocking
+        self._prewarm_queue = [
+            k for k in ["Medicines", "Batches", "Purchases", "Suppliers", "Search", "Billing", "FMEA", "SQC", "Reports"]
+            if k in self.allowed_nav_keys and k != "Dashboard"
+        ]
+        self.after(100, self._prewarm_step)
+
+    def _prewarm_step(self) -> None:
+        """Instantiate remaining views sequentially in idle slices to avoid click freezing."""
+        if not self._prewarm_queue:
+            return
+        nav_key = self._prewarm_queue.pop(0)
+        try:
+            if nav_key == "Medicines" and self.medicines_view is None:
+                from ui.medicines import MedicinesView
+                self.medicines_view = MedicinesView(self.content_container, self.user)
+            elif nav_key == "Batches" and self.batches_view is None:
+                from ui.batch_inventory import BatchInventoryView
+                self.batches_view = BatchInventoryView(self.content_container, self.user)
+            elif nav_key == "Purchases" and self.purchases_view is None:
+                from ui.purchase_entry import PurchaseEntryView
+                self.purchases_view = PurchaseEntryView(self.content_container, self.user)
+            elif nav_key == "Suppliers" and self.suppliers_view is None:
+                from ui.supplier_management import SupplierManagementView
+                self.suppliers_view = SupplierManagementView(self.content_container, self.user)
+            elif nav_key == "Search" and self.search_view is None:
+                from ui.search import AdvancedSearchView
+                self.search_view = AdvancedSearchView(self.content_container, self.user)
+            elif nav_key == "Billing" and self.billing_view is None:
+                from ui.billing import BillingView
+                self.billing_view = BillingView(self.content_container, self.user)
+
+            elif nav_key == "FMEA" and self.fmea_view is None:
+                from ui.fmea_view import FMEAView
+                self.fmea_view = FMEAView(self.content_container, user=self.user)
+            elif nav_key == "SQC" and self.sqc_view is None:
+                from ui.sqc_view import SQCView
+                self.sqc_view = SQCView(self.content_container, user=self.user)
+            elif nav_key == "Reports" and self.reports_view is None:
+                from ui.reports_view import ReportsView
+                self.reports_view = ReportsView(self.content_container, self.user)
+        except Exception as e:
+            self.logger.log_event("NAV", f"Background pre-warm for {nav_key} skipped: {e}")
+
+        if self._prewarm_queue:
+            self.after(60, self._prewarm_step)
+
+    # ------------------------------------------------------------------
+    # Navigation
+    # ------------------------------------------------------------------
+
+    def _all_views(self):
+        return [v for v in [
+            self.dashboard_view, self.medicines_view, self.batches_view,
+            self.purchases_view, self.suppliers_view, self.search_view,
+            self.billing_view, self.reports_view,
+            self.fmea_view, self.sqc_view, self.staff_view
+        ] if v is not None]
+
+    def _on_nav_click(self, nav_key: str) -> None:
+        if hasattr(self, "allowed_nav_keys") and nav_key not in self.allowed_nav_keys:
+            nav_key = "Dashboard"
+        self.current_nav = nav_key
+
+        for key, btn in self.nav_buttons.items():
+            if key == nav_key:
+                btn.configure(fg_color=Theme.PRIMARY, text_color=Theme.TEXT_DARK)
+            else:
+                btn.configure(fg_color="transparent", text_color=Theme.TEXT_SIDEBAR)
+
+        for v in self._all_views():
+            v.pack_forget()
+
+        if nav_key == "Dashboard":
+            self.dashboard_view.refresh()
+            self.dashboard_view.pack(fill="both", expand=True)
+        elif nav_key == "Medicines":
+            if self.medicines_view is None:
+                from ui.medicines import MedicinesView
+                self.medicines_view = MedicinesView(self.content_container, self.user)
+            self.medicines_view.refresh_table()
+            self.medicines_view.pack(fill="both", expand=True)
+        elif nav_key == "Batches":
+            if self.batches_view is None:
+                from ui.batch_inventory import BatchInventoryView
+                self.batches_view = BatchInventoryView(self.content_container, self.user)
+            self.batches_view._load_active_tab()
+            self.batches_view.pack(fill="both", expand=True)
+        elif nav_key == "Purchases":
+            if self.purchases_view is None:
+                from ui.purchase_entry import PurchaseEntryView
+                self.purchases_view = PurchaseEntryView(self.content_container, self.user)
+            self.purchases_view.refresh_table()
+            self.purchases_view.pack(fill="both", expand=True)
+        elif nav_key == "Suppliers":
+            if self.suppliers_view is None:
+                from ui.supplier_management import SupplierManagementView
+                self.suppliers_view = SupplierManagementView(self.content_container, self.user)
+            self.suppliers_view.refresh_table()
+            self.suppliers_view.pack(fill="both", expand=True)
+        elif nav_key == "Search":
+            if self.search_view is None:
+                from ui.search import AdvancedSearchView
+                self.search_view = AdvancedSearchView(self.content_container, self.user)
+            self.search_view.pack(fill="both", expand=True)
+        elif nav_key == "Billing":
+            if self.billing_view is None:
+                from ui.billing import BillingView
+                self.billing_view = BillingView(self.content_container, self.user)
+            self.billing_view.refresh_cart_display()
+            self.billing_view.pack(fill="both", expand=True)
+        elif nav_key == "Staff":
+            if self.staff_view is None:
+                from ui.staff_management import StaffManagementView
+                self.staff_view = StaffManagementView(self.content_container, self.user, on_navigate_callback=self._on_nav_click)
+            else:
+                self.staff_view.refresh_staff_list()
+            self.staff_view.pack(fill="both", expand=True)
+        elif nav_key == "Reports":
+            if self.reports_view is None:
+                from ui.reports_view import ReportsView
+                self.reports_view = ReportsView(self.content_container, self.user)
+            else:
+                self.reports_view.refresh_reports()
+            self.reports_view.pack(fill="both", expand=True)
+
+        elif nav_key == "FMEA":
+            if self.fmea_view is None:
+                from ui.fmea_view import FMEAView
+                self.fmea_view = FMEAView(self.content_container, user=self.user)
+            self.fmea_view.pack(fill="both", expand=True)
+        elif nav_key == "SQC":
+            if self.sqc_view is None:
+                from ui.sqc_view import SQCView
+                self.sqc_view = SQCView(self.content_container, user=self.user)
+            self.sqc_view.pack(fill="both", expand=True)
+
+    def _handle_logout(self) -> None:
+        self.logger.log_event("AUTH", f"User '{self.user.username}' logged out.")
+        if self.on_logout_callback:
+            self.on_logout_callback()
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatibility alias
+# Tests and any code that imported MainWindow still work.
+# ---------------------------------------------------------------------------
+
+class MainWindow(ctk.CTk):
+    """
+    Legacy standalone window – kept for backward compatibility.
+    New code should use PharmacyApp + MainWindowContent instead.
+    """
+
+    def __init__(self, user: User,
+                 on_logout_callback: Optional[Callable[[], None]] = None):
+        super().__init__()
+        self.user = user
+        self.on_logout_callback = on_logout_callback
+
+        self.title("Pharmacy Management System")
+        self.geometry("1200x760")
+        self.minsize(980, 620)
+        self.configure(fg_color=Theme.BG_DARK)
+
+        self.update_idletasks()
+        w, h = self.winfo_width(), self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (w // 2)
+        y = (self.winfo_screenheight() // 2) - (h // 2)
+        self.geometry(f"{w}x{h}+{max(0, x)}+{max(0, y)}")
+
+        self._content = MainWindowContent(
+            self, user, on_logout_callback=self._legacy_logout
+        )
+        self._content.pack(fill="both", expand=True)
+
+    def _legacy_logout(self) -> None:
+        self.destroy()
+        if self.on_logout_callback:
+            self.on_logout_callback()

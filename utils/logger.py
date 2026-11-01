@@ -3,15 +3,14 @@ Logger module for recording system quality events, defect preventions,
 and search performance metrics for Fact-Based Decision Making.
 """
 import os
+import sys
 import logging
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from utils.paths import get_data_dir, get_default_log_path
 
-LOG_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data"
-)
-LOG_FILE = os.path.join(LOG_DIR, "app_quality.log")
+LOG_DIR = get_data_dir()
+LOG_FILE = get_default_log_path()
 
 
 class AppLogger:
@@ -25,19 +24,30 @@ class AppLogger:
     def _ensure_log_dir(self) -> None:
         log_dir = os.path.dirname(self.log_path)
         if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
+            try:
+                os.makedirs(log_dir, exist_ok=True)
+            except (OSError, PermissionError) as e:
+                sys.stderr.write(f"[LOGGER-WARNING] Cannot create log directory '{log_dir}': {e}\n")
 
     def _setup_logger(self) -> None:
         self.logger = logging.getLogger("PharmacySystem")
         self.logger.setLevel(logging.INFO)
         if not self.logger.handlers:
-            handler = logging.FileHandler(self.log_path, encoding="utf-8")
             formatter = logging.Formatter(
                 "[%(asctime)s] [%(levelname)s] [APP-%(category)s] %(message)s",
                 datefmt="%Y-%m-%d %H:%M:%S"
             )
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
+            try:
+                handler = logging.FileHandler(self.log_path, encoding="utf-8")
+                handler.setFormatter(formatter)
+                self.logger.addHandler(handler)
+            except (OSError, PermissionError) as e:
+                fallback_handler = logging.StreamHandler(sys.stderr)
+                fallback_handler.setFormatter(formatter)
+                self.logger.addHandler(fallback_handler)
+                sys.stderr.write(
+                    f"[LOGGER-WARNING] Could not open log file '{self.log_path}': {e}. Using console logging fallback.\n"
+                )
 
     def log_event(self, category: str, message: str, level: str = "INFO") -> None:
         """Logs a quality event under specified log category (e.g. SEARCH, POKA_YOKE, AUTH, ERROR)."""
