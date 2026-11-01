@@ -24,8 +24,9 @@ class AdvancedSearchView(ctk.CTkFrame):
     def __init__(self, parent, user: User):
         super().__init__(parent, fg_color="transparent")
         self.user = user
-        self.search_service = SearchService()
-        self.medicine_service = MedicineService()
+        store_id = getattr(self.user, 'store_id', 'STORE-LEGACY-001')
+        self.search_service = SearchService(store_id=store_id)
+        self.medicine_service = MedicineService(store_id=store_id)
         self.logger = get_app_logger()
 
         # Debounce timer reference
@@ -144,12 +145,24 @@ class AdvancedSearchView(ctk.CTkFrame):
         self.exp_menu = ctk.CTkOptionMenu(
             row2,
             values=["All", "Valid", "Expiring Soon", "Expired"],
-            width=120,
+            width=110,
             height=32,
             font=Theme.FONT_SMALL, 
             command=lambda v: self._trigger_filter_change()
         )
-        self.exp_menu.pack(side="left")
+        self.exp_menu.pack(side="left", padx=(0, 10))
+
+        # Shelf / Rack Filter
+        ctk.CTkLabel(row2, text="Shelf/Rack:", font=Theme.FONT_SMALL, text_color=Theme.TEXT_MUTED).pack(side="left", padx=(0, 4))
+        self.shelf_menu = ctk.CTkOptionMenu(
+            row2,
+            values=["All", "SHELF-A01", "SHELF-A02", "SHELF-B01", "SHELF-B02", "SHELF-COLD", "SHELF-QUAR"],
+            width=120,
+            height=32,
+            font=Theme.FONT_SMALL,
+            command=lambda v: self._trigger_filter_change()
+        )
+        self.shelf_menu.pack(side="left")
 
         # Row 3: Price Range, Whitelisted Sorting & Buttons
         row3 = ctk.CTkFrame(filter_card, fg_color="transparent")
@@ -254,7 +267,7 @@ class AdvancedSearchView(ctk.CTkFrame):
 
         columns = (
             "id", "code", "name", "category", "manufacturer",
-            "batch", "price", "quantity", "expiry", "stock_status", "expiry_status"
+            "batch", "shelf", "price", "quantity", "expiry", "stock_status", "expiry_status"
         )
         self.tree = ttk.Treeview(
             results_container,
@@ -267,16 +280,17 @@ class AdvancedSearchView(ctk.CTkFrame):
 
         headers = [
             ("id", "ID", 40),
-            ("code", "Code", 90),
-            ("name", "Medicine Name", 190),
-            ("category", "Category", 115),
-            ("manufacturer", "Manufacturer", 125),
+            ("code", "Code", 85),
+            ("name", "Medicine Name", 175),
+            ("category", "Category", 110),
+            ("manufacturer", "Manufacturer", 120),
             ("batch", "Batch No", 80),
-            ("price", "Price (₹)", 80),
-            ("quantity", "Qty", 65),
-            ("expiry", "Expiry Date", 95),
-            ("stock_status", "Stock Status", 105),
-            ("expiry_status", "Expiry Status", 105)
+            ("shelf", "Shelf / Rack", 90),
+            ("price", "Price (₹)", 75),
+            ("quantity", "Qty", 60),
+            ("expiry", "Expiry Date", 90),
+            ("stock_status", "Stock Status", 95),
+            ("expiry_status", "Expiry Status", 95)
         ]
 
         for col_id, title, width in headers:
@@ -381,6 +395,8 @@ class AdvancedSearchView(ctk.CTkFrame):
         self.mfr_menu.set("All")
         self.stock_menu.set("All")
         self.exp_menu.set("All")
+        if hasattr(self, "shelf_menu"):
+            self.shelf_menu.set("All")
         self.min_price_entry.delete(0, "end")
         self.max_price_entry.delete(0, "end")
         self.sort_field_menu.set("Medicine Name")
@@ -459,32 +475,94 @@ class AdvancedSearchView(ctk.CTkFrame):
             limit=500
         )
 
-        # 4. Render Results in Treeview
+        # 4. Resolve Batch and Shelf records for transparent multi-batch breakdown
+        selected_shelf = self.shelf_menu.get() if hasattr(self, "shelf_menu") else "All"
+
+        shelf_batch_map = {}
+        if hasattr(self.medicine_service, "db") and self.medicine_service.db:
+            t_check = self.medicine_service.db.fetch_one("SELECT name FROM sqlite_master WHERE type='table' AND name='inventory_batches'")
+            if t_check:
+                b_rows = self.medicine_service.db.fetch_all(
+                    """
+                    SELECT b.medicine_id, b.batch_number, b.expiry_date, b.current_quantity,
+                           COALESCE(sl.shelf_code, 'SHELF-A01') as shelf_code, b.status
+                    FROM inventory_batches b
+                    LEFT JOIN storage_locations sl ON b.location_id = sl.location_id
+                    WHERE b.store_id = ? AND b.status IN ('Active', 'AVAILABLE')
+                    ORDER BY b.expiry_date ASC
+                    """,
+                    (getattr(self.user, "store_id", "STORE-LEGACY-001"),)
+                )
+                for br in b_rows:
+                    m_id = br["medicine_id"]
+                    if m_id not in shelf_batch_map:
+                        shelf_batch_map[m_id] = []
+                    shelf_batch_map[m_id].append(br)
+
         for item in self.tree.get_children():
             self.tree.delete(item)
 
+        inserted_count = 0
         for med in medicines:
-            self.tree.insert(
-                "",
-                "end",
-                iid=str(med.medicine_id),
-                values=(
-                    med.medicine_id,
-                    med.medicine_code,
-                    med.medicine_name,
-                    med.category,
-                    med.manufacturer,
-                    med.batch_no,
-                    f"₹{med.price:.2f}",
-                    med.quantity,
-                    med.expiry_date,
-                    med.stock_status,
-                    med.expiry_status
+            batches_for_med = shelf_batch_map.get(med.medicine_id, [])
+            if batches_for_med:
+                # If multiple batches exist across shelves, display batch-level rows
+                for b_info in batches_for_med:
+                    s_code = b_info["shelf_code"]
+                    if selected_shelf != "All" and s_code != selected_shelf:
+                        continue
+                    b_no = b_info["batch_number"]
+                    b_qty = b_info["current_quantity"]
+                    b_exp = b_info["expiry_date"]
+                    row_id = f"{med.medicine_id}_{b_no}"
+
+                    self.tree.insert(
+                        "",
+                        "end",
+                        iid=row_id,
+                        values=(
+                            med.medicine_id,
+                            med.medicine_code,
+                            med.medicine_name,
+                            med.category,
+                            med.manufacturer,
+                            b_no,
+                            s_code,
+                            f"₹{med.price:.2f}",
+                            b_qty,
+                            b_exp,
+                            med.stock_status,
+                            med.expiry_status
+                        )
+                    )
+                    inserted_count += 1
+            else:
+                default_shelf = "SHELF-COLD" if "insulin" in med.medicine_name.lower() else "SHELF-A01"
+                if selected_shelf != "All" and default_shelf != selected_shelf:
+                    continue
+                self.tree.insert(
+                    "",
+                    "end",
+                    iid=str(med.medicine_id),
+                    values=(
+                        med.medicine_id,
+                        med.medicine_code,
+                        med.medicine_name,
+                        med.category,
+                        med.manufacturer,
+                        med.batch_no,
+                        default_shelf,
+                        f"₹{med.price:.2f}",
+                        med.quantity,
+                        med.expiry_date,
+                        med.stock_status,
+                        med.expiry_status
+                    )
                 )
-            )
+                inserted_count += 1
 
         # 5. Update Status Counters & Measured Execution Time
-        self.count_lbl.configure(text=f"Results Found: {len(medicines)}")
+        self.count_lbl.configure(text=f"Results Found: {inserted_count}")
         self.query_time_lbl.configure(text=f"SQL Query Time: {latency_ms:.3f} ms")
 
         # Log Search activity
@@ -506,7 +584,8 @@ class AdvancedSearchView(ctk.CTkFrame):
             messagebox.showwarning("Select Result", "Please select a medicine record from the table to view details.")
             return
 
-        med_id = int(selected_items[0])
+        raw_id = selected_items[0]
+        med_id = int(raw_id.split("_")[0]) if "_" in str(raw_id) else int(raw_id)
         med = self.medicine_service.get_medicine_by_id(med_id)
         if med:
             MedicineDetailModal(self, med)
