@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    actor Cashier
+    participant UI as BillingView (POS UI)
+    participant Val as Validators
+    participant Svc as SalesService
+    participant Shelf as ShelfService
+    participant DB as SQLite Database
+    actor Customer
+
+    Customer->>Cashier: Requests Medicines & Provides Phone Number
+    Cashier->>UI: Enters Customer Name & 10-Digit Phone
+    Cashier->>UI: Searches Medicine & Enters Requested Quantity
+    UI->>Svc: validate_cart_item(medicine_id, quantity)
+    Svc->>DB: Query available unexpired batches
+    DB-->>Svc: Eligible batches list
+    Svc-->>UI: Item Validated (Stock Available)
+    UI->>UI: Append Item to 8-Column POS Cart Table
+
+    Cashier->>UI: Selects Payment Method (Cash / UPI / Card) & Clicks Checkout
+    UI->>Val: validate_indian_phone(patient_phone)
+    alt Invalid Mobile Number (<10 digits or non-numeric)
+        Val-->>UI: Validation Error ("Enter valid 10-digit Indian mobile")
+        UI-->>Cashier: Display Red Error Label & Block Checkout
+    else Valid Mobile (10 digits starting 6-9)
+        Val-->>UI: Phone Validated
+        UI->>Svc: process_sale(cart_items, phone, payment_method)
+        activate Svc
+        Svc->>DB: BEGIN IMMEDIATE TRANSACTION
+        loop For Each Cart Item
+            Svc->>Svc: Execute FEFO Batch Allocation Algorithm
+            Svc->>DB: INSERT INTO sale_items
+            Svc->>DB: INSERT INTO sale_batch_allocations
+            Svc->>DB: UPDATE inventory_batches SET current_quantity
+            Svc->>DB: INSERT INTO stock_movements (SALE_DISPENSE)
+            Svc->>DB: UPDATE medicines SET quantity
+        end
+        Svc->>DB: INSERT INTO sales (Invoice, Total, Payment)
+        Svc->>DB: COMMIT TRANSACTION
+        deactivate Svc
+        DB-->>Svc: Transaction Committed
+        Svc-->>UI: Sale Success (Invoice Object)
+        UI->>UI: Render Completed Invoice Receipt Modal
+        UI->>Customer: Hand over Printed Bill & Dispensed Medicines
+    end

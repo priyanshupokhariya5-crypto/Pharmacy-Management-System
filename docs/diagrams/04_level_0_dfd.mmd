@@ -1,0 +1,32 @@
+flowchart TD
+    classDef ext fill:#1e293b,stroke:#0284c7,stroke-width:2px,color:#ffffff;
+    classDef proc fill:#0f172a,stroke:#38bdf8,stroke-width:3px,color:#ffffff;
+    classDef store fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#ffffff;
+
+    User["Pharmacy Staff<br/>(Owner / Admin / Pharmacist / Cashier / InvMgr)"]:::ext
+    Supplier["External Medicine Supplier"]:::ext
+    Customer["Patient / Customer"]:::ext
+
+    P0["0.0<br/>PHARMACY MANAGEMENT SYSTEM<br/>(Core Processing Engine)"]:::proc
+
+    D1[("D1: Store DB (SQLite)")]:::store
+    D2[("D2: Audit & Quality Logs")]:::store
+    D3[("D3: File System (PDF Invoices)")]:::store
+
+    User -->|"Credentials, Role Selection"| P0
+    User -->|"Medicine CRUD, Shelf Updates, Stock Adjustments"| P0
+    User -->|"Search Queries (Code, Name, Shelf)"| P0
+    User -->|"POS Billing Items, Customer Mobile"| P0
+
+    P0 -->|"Role Dashboards, Stock Alerts, Search Results"| User
+    P0 -->|"Invoice Preview, Financial Summaries, RPN Metrics"| User
+
+    Supplier -->|"Shipment Details, Invoices, Batch Numbers"| P0
+    P0 -->|"Purchase Orders, Goods Receipt Confirmation"| Supplier
+
+    Customer -->|"Prescriptions, Mobile Number, Payments"| P0
+    P0 -->|"Printed Sales Receipt, Refund Vouchers"| Customer
+
+    P0 <-->|"Read/Write Normalized Data"| D1
+    P0 -->|"Write Audit Trail & Quality Logs"| D2
+    P0 -->|"Generate & Save PDF Documents"| D3

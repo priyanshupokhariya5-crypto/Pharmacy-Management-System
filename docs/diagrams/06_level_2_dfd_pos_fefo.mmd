@@ -1,0 +1,44 @@
+flowchart TD
+    classDef proc fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+    classDef store fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#ffffff;
+    classDef ext fill:#1e293b,stroke:#0284c7,stroke-width:2px,color:#ffffff;
+
+    Cashier["Cashier / Pharmacist"]:::ext
+    Customer["Patient / Customer"]:::ext
+
+    P51["5.1 Validate Customer Mobile Number"]:::proc
+    P52["5.2 Scan / Select Medicine into Cart"]:::proc
+    P53["5.3 Execute FEFO Batch Allocation Algorithm"]:::proc
+    P54["5.4 Compute Subtotal, Discount, Tax & Rounding"]:::proc
+    P55["5.5 Process Payment (Cash / UPI / Card)"]:::proc
+    P56["5.6 Commit Atomic Transaction & Deduct Stock"]:::proc
+    P57["5.7 Generate Sales Invoice & PDF Receipt"]:::proc
+
+    D_Med[("D2: Medicines")]:::store
+    D_Batch[("D3: Inventory Batches")]:::store
+    D_Move[("D3.1: Stock Movements")]:::store
+    D_Sales[("D4: Sales & Items")]:::store
+    D_Alloc[("D4.1: Batch Allocations")]:::store
+
+    Customer -->|"Provide 10-Digit Mobile"| P51
+    P51 -->|"Validated Mobile Number"| P54
+
+    Cashier -->|"Select Medicine & Qty"| P52
+    P52 <-->|"Check Medicine Exists"| D_Med
+    P52 -->|"Requested Item"| P53
+
+    P53 <-->|"Fetch Unexpired Batches (ORDER BY expiry_date ASC)"| D_Batch
+    P53 -->|"Batch Breakdown & Unit Prices"| P54
+
+    P54 -->|"Payable Grand Total"| P55
+    Customer -->|"Tender Payment"| P55
+
+    P55 -->|"Payment Confirmation"| P56
+    P56 -->|"Insert Sale & SaleItems"| D_Sales
+    P56 -->|"Insert Allocations"| D_Alloc
+    P56 -->|"Deduct Batch Quantities"| D_Batch
+    P56 -->|"Record SALE_DISPENSE"| D_Move
+
+    P56 -->|"Invoice Reference"| P57
+    P57 -->|"Completed PDF Receipt"| Cashier
+    P57 -->|"Printed Invoice"| Customer

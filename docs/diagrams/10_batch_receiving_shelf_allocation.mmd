@@ -1,0 +1,20 @@
+flowchart TD
+    Start([Receive New Consignment / PO Delivery]) --> SelectMed[Select Medicine and Input Batch Number]
+    SelectMed --> InputDates[Input Manufacturing Date & Expiry Date]
+    InputDates --> ValidateExpiry{Is Expiry Date in the Future?}
+    ValidateExpiry -- No --> BlockPastDate[Poka-Yoke: Cannot receive expired batch]
+    BlockPastDate --> InputDates
+    ValidateExpiry -- Yes --> SelectLocation[Select Physical Shelf / Rack Location]
+    SelectLocation --> QueryShelf[Query existing batches at selected Shelf Location]
+    QueryShelf --> CheckSameMed{Is same medicine already on this shelf?}
+    CheckSameMed -- No --> LocationAllowed[Shelf Allocation Allowed: Shelf is empty or stores other meds]
+    CheckSameMed -- Yes --> CheckExpiryDate{Do existing batches share EXACT same expiry date?}
+    CheckExpiryDate -- Different Expiry --> RejectAllocation[CRITICAL SHELF RULE VIOLATION:<br/>Same medicine with different expiry MUST be stored on separate shelves]
+    RejectAllocation --> SuggestShelf[Suggest Alternative Shelf Location / Create New Shelf]
+    SuggestShelf --> SelectLocation
+    CheckExpiryDate -- Exact Same Expiry --> LocationAllowed[Allocation Allowed: Identical expiry batches may share shelf]
+    LocationAllowed --> InputQuantities[Input Received Quantity, Purchase Cost & Selling Price]
+    InputQuantities --> InsertBatch[Insert Record into INVENTORY_BATCHES (status='Active')]
+    InsertBatch --> RecordMovement[Insert PURCHASE_RECEIPT into STOCK_MOVEMENTS]
+    RecordMovement --> UpdateMedQty[Increment medicines.quantity by received amount]
+    UpdateMedQty --> Done([Batch Inward & Shelf Allocation Complete])

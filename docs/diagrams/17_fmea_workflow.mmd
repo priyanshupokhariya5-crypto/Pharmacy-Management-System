@@ -1,0 +1,28 @@
+flowchart TD
+    Start([TQM Committee / Pharmacist Opens FMEA View]) --> AuthCheck{Has 'view_fmea'?}
+    AuthCheck -- No --> Deny[Access Denied]
+    AuthCheck -- Yes --> LoadRecords[Fetch FMEA Records from DB]
+    LoadRecords --> DisplayMatrix[Render Risk Analysis Table & RPN Summary]
+    DisplayMatrix --> UserAction{User Action}
+
+    UserAction -- 'Add Failure Mode' --> OpenAddModal[Open Risk Entry Form]
+    OpenAddModal --> InputProcess[Select Process Module: Dispensing / Inventory / Billing / Search]
+    InputProcess --> DescribeMode[Describe Failure Mode, Potential Effect & Root Cause]
+    DescribeMode --> ScoreVariables[Assign Severity (S: 1-10), Occurrence (O: 1-10), Detection (D: 1-10)]
+    ScoreVariables --> CalcRPN[Compute RPN = S x O x D]
+    CalcRPN --> CategorizeRisk{Evaluate RPN against Thresholds}
+    CategorizeRisk -- 'RPN >= 125' --> CriticalRisk[Risk Level: CRITICAL (Immediate Action Required)]
+    CategorizeRisk -- 'RPN >= 80' --> HighRisk[Risk Level: HIGH (Mandatory Mitigation)]
+    CategorizeRisk -- 'RPN >= 40' --> MediumRisk[Risk Level: MEDIUM (Periodic Review)]
+    CategorizeRisk -- 'RPN < 40' --> LowRisk[Risk Level: LOW (Acceptable Risk)]
+    CriticalRisk --> AssignAction[Define Recommended Action, Owner & Status='Open']
+    HighRisk --> AssignAction
+    MediumRisk --> AssignAction
+    LowRisk --> AssignAction
+    AssignAction --> SaveFMEA[INSERT INTO fmea_records]
+    SaveFMEA --> RefreshMatrix[Refresh FMEA Table & High-Risk Alert Cards]
+
+    UserAction -- 'Update Action Status' --> ChangeStatus[Update status: Open -> In Progress -> Completed]
+    ChangeStatus --> ReEvaluate[Post-Mitigation Scoring: Recalculate New RPN]
+    ReEvaluate --> SaveUpdate[UPDATE fmea_records]
+    SaveUpdate --> RefreshMatrix

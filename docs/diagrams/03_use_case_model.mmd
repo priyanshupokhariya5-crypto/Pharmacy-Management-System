@@ -1,0 +1,63 @@
+flowchart LR
+    classDef actor fill:#1e293b,stroke:#0284c7,stroke-width:2px,color:#ffffff;
+    classDef usecase fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+
+    Owner["Owner"]:::actor
+    Admin["Admin"]:::actor
+    Pharmacist["Pharmacist"]:::actor
+    Cashier["Cashier"]:::actor
+    InvMgr["Inventory Manager"]:::actor
+
+    UC_Login["UC-01: Authenticate & Select Store"]:::usecase
+    UC_Staff["UC-02: Manage Staff Accounts"]:::usecase
+    UC_Med["UC-03: Manage Medicine Master"]:::usecase
+    UC_Batch["UC-04: Batch Receiving & Shelf Allocation"]:::usecase
+    UC_Search["UC-05: Q13 Advanced Medicine Search"]:::usecase
+    UC_POS["UC-06: POS Checkout & FEFO Allocation"]:::usecase
+    UC_Return["UC-07: Process Customer Sales Return"]:::usecase
+    UC_Purch["UC-08: Manage Suppliers & Purchases"]:::usecase
+    UC_Rep["UC-09: Generate Analytics & Audit Reports"]:::usecase
+    UC_FMEA["UC-10: Conduct FMEA Risk Audit"]:::usecase
+    UC_SQC["UC-11: Track SQC Defects & PDCA"]:::usecase
+
+    Owner --> UC_Login
+    Owner --> UC_Staff
+    Owner --> UC_Med
+    Owner --> UC_Batch
+    Owner --> UC_Search
+    Owner --> UC_POS
+    Owner --> UC_Return
+    Owner --> UC_Purch
+    Owner --> UC_Rep
+    Owner --> UC_FMEA
+    Owner --> UC_SQC
+
+    Admin --> UC_Login
+    Admin --> UC_Staff
+    Admin --> UC_Med
+    Admin --> UC_Batch
+    Admin --> UC_Search
+    Admin --> UC_POS
+    Admin --> UC_Return
+    Admin --> UC_Purch
+    Admin --> UC_Rep
+    Admin --> UC_FMEA
+    Admin --> UC_SQC
+
+    Pharmacist --> UC_Login
+    Pharmacist --> UC_Med
+    Pharmacist --> UC_Search
+    Pharmacist --> UC_POS
+    Pharmacist --> UC_FMEA
+
+    Cashier --> UC_Login
+    Cashier --> UC_POS
+    Cashier --> UC_Return
+    Cashier --> UC_Search
+
+    InvMgr --> UC_Login
+    InvMgr --> UC_Med
+    InvMgr --> UC_Batch
+    InvMgr --> UC_Purch
+    InvMgr --> UC_Search
+    InvMgr --> UC_SQC

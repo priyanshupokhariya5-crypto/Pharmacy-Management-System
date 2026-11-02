@@ -1,0 +1,24 @@
+flowchart TD
+    Start([Procurement Clerk Opens Purchasing View]) --> Auth{Has 'manage_purchases'?}
+    Auth -- No --> Deny[Access Denied]
+    Auth -- Yes --> SelectSupplier[Select Registered Supplier from Dropdown]
+    SelectSupplier --> EnterInvoice[Enter Supplier Invoice Number & Date]
+    EnterInvoice --> AddItems[Add Medicine Items: Code, Batch No, Shelf, Qty, Cost]
+    AddItems --> CheckShelfRule[Validate Shelf Allocation Rules for each batch]
+    CheckShelfRule -- Conflict --> CorrectShelf[Adjust Shelf Allocation]
+    CorrectShelf --> AddItems
+    CheckShelfRule -- Valid --> MoreItems{Add More Items?}
+    MoreItems -- Yes --> AddItems
+    MoreItems -- No --> CalcTotal[Compute Purchase Order Grand Total]
+    CalcTotal --> SelectPayment[Select Payment Status: PAID / PENDING / PARTIAL]
+    SelectPayment --> ConfirmPO[Click 'Save & Process Goods Receipt']
+    ConfirmPO --> BeginTxn[Begin SQLite Atomic Transaction]
+    BeginTxn --> InsertPO[INSERT INTO purchases]
+    InsertPO --> LoopItems[Iterate Items: INSERT INTO purchase_items]
+    LoopItems --> UpsertBatches[INSERT INTO inventory_batches]
+    UpsertBatches --> LogMovements[INSERT INTO stock_movements (PURCHASE_RECEIPT)]
+    LogMovements --> UpdateMeds[UPDATE medicines SET quantity = quantity + batch_qty]
+    UpdateMeds --> CommitTxn{Commit Successful?}
+    CommitTxn -- Failure --> RollbackTxn[ROLLBACK: Restore Previous State & Show Error]
+    CommitTxn -- Success --> AuditPO[Write Audit Log & Generate PO Receipt Modal]
+    AuditPO --> Done([Procurement Workflow Finished])

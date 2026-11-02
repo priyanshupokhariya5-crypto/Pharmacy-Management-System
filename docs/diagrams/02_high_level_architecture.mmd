@@ -1,0 +1,48 @@
+flowchart TD
+    classDef presentation fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+    classDef service fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#ffffff;
+    classDef data fill:#1e1e2e,stroke:#a855f7,stroke-width:2px,color:#ffffff;
+    classDef cross fill:#1f2937,stroke:#10b981,stroke-width:2px,color:#ffffff;
+
+    subgraph PresentationLayer["Presentation Layer (CustomTkinter GUI)"]
+        UI_Login["Login & Multi-Store Select View"]:::presentation
+        UI_Dash["Role Dashboards (KPIs & Quick Search)"]:::presentation
+        UI_Med["Medicine Inventory Management View"]:::presentation
+        UI_Batch["Batch Tracking & Shelf View"]:::presentation
+        UI_Search["Q13 Advanced Search & Filter View"]:::presentation
+        UI_POS["POS Billing & 8-Column Cart View"]:::presentation
+        UI_Purch["Purchase Order & Goods Receipt View"]:::presentation
+        UI_Supp["Supplier Directory & Management View"]:::presentation
+        UI_Staff["Staff Account & Password Reset View"]:::presentation
+        UI_Rep["Analytical Reports & Visualizations View"]:::presentation
+        UI_TQM["TQM Modules (FMEA, SQC & PDCA) View"]:::presentation
+    end
+
+    subgraph ServiceLayer["Service & Business Logic Layer"]
+        SVC_Auth["AuthService & RBAC Guards"]:::service
+        SVC_Med["MedicineService (Dependency Checks)"]:::service
+        SVC_Inv["InventoryService & ShelfService"]:::service
+        SVC_Search["SearchService (B-Tree Query Engine)"]:::service
+        SVC_Sales["SalesService (FEFO & POS Checkout)"]:::service
+        SVC_Purch["PurchaseService & SupplierService"]:::service
+        SVC_Rep["ReportService & AuditService"]:::service
+        SVC_TQM["FMEAService & SQCService"]:::service
+    end
+
+    subgraph CrossCutting["Cross-Cutting & Utility Services"]
+        VAL["Validators (Phone, Money, Expiry)"]:::cross
+        LOG["Logging Framework (Rotating File Logs)"]:::cross
+        PDF["PDF Generator (FPDF / Invoices)"]:::cross
+        SEC["Security (PBKDF2-HMAC-SHA256)"]:::cross
+    end
+
+    subgraph DataLayer["Data Access & Storage Layer"]
+        DB_Mgr["Database Connection Manager (Singleton)"]:::data
+        MIG["Migration Manager & Schema Sync"]:::data
+        SQLITE[("SQLite Database Engine (WAL Mode)")]:::data
+    end
+
+    PresentationLayer --> ServiceLayer
+    ServiceLayer --> CrossCutting
+    ServiceLayer --> DataLayer
+    DataLayer --> SQLITE

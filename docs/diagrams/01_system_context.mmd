@@ -1,0 +1,30 @@
+graph TD
+    classDef actor fill:#1e293b,stroke:#0284c7,stroke-width:2px,color:#ffffff;
+    classDef system fill:#0f172a,stroke:#38bdf8,stroke-width:3px,color:#ffffff;
+    classDef storage fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#ffffff;
+
+    Owner["Owner (Business & Store Admin)"]:::actor
+    Admin["System Administrator"]:::actor
+    Pharmacist["Clinical Pharmacist"]:::actor
+    Cashier["Cashier / Billing Clerk"]:::actor
+    InvMgr["Inventory Manager"]:::actor
+    Supplier["Suppliers / Distributors"]:::actor
+    Customer["Patients / Retail Customers"]:::actor
+
+    PMS["PHARMACY MANAGEMENT SYSTEM<br/>(Desktop Standalone Application)"]:::system
+
+    SQLite[("Local SQLite Database<br/>(WAL Mode, Foreign Keys)")]:::storage
+    FileSystem[("Operating System Filesystem<br/>(PDF Invoices, Reports, Logs)")]:::storage
+    Printer["Receipt Printer / A4 Document Printer"]:::actor
+
+    Owner -->|"Store Setup, User Audits, Financial Governance"| PMS
+    Admin -->|"Staff Accounts, System Maintenance, Policies"| PMS
+    Pharmacist -->|"Prescription Review, Medicine Dispensing, Stock Alerts"| PMS
+    Cashier -->|"POS Billing, Payment Entry, Receipts"| PMS
+    InvMgr -->|"Purchase Orders, Batch Inward, Shelf Allocation"| PMS
+    Supplier -.->|"Deliveries, Tax Invoices, Batch Certificates"| InvMgr
+    Customer -.->|"Prescriptions, Mobile Number, Payment"| Cashier
+
+    PMS <-->|"ACID Transactions, Multi-Store Tenant Queries"| SQLite
+    PMS -->|"Export Audit Logs, Reports & Invoices"| FileSystem
+    PMS -->|"Render Printable Receipts (PDF / Text)"| Printer

@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    actor User as Cashier / Operator
+    participant UI as POS Interface
+    participant SS as SalesService
+    participant DB as SQLite Database Engine
+    participant Log as AuditService
+
+    User->>UI: Submits Final Checkout
+    UI->>SS: process_sale(store_id, customer_info, cart_items, payment)
+    SS->>DB: BEGIN TRANSACTION
+    Note over SS,DB: ACID Guarantee: All operations succeed or all rollback
+
+    critical Checkout Transaction
+        SS->>DB: Lock Batches (SELECT FOR UPDATE / Immediate)
+        SS->>SS: Calculate FEFO Allocations
+        SS->>DB: INSERT INTO sales (invoice_no, subtotal, tax, total, payment)
+        SS->>DB: INSERT INTO sale_items
+        SS->>DB: INSERT INTO sale_batch_allocations
+        SS->>DB: UPDATE inventory_batches (current_quantity = current_quantity - allocated)
+        SS->>DB: INSERT INTO stock_movements (movement_type='SALE_DISPENSE')
+        SS->>DB: UPDATE medicines (quantity = quantity - total_sold)
+        SS->>DB: COMMIT TRANSACTION
+    option Transaction Exception / Insufficient Stock
+        SS->>DB: ROLLBACK TRANSACTION
+        SS-->>UI: Raise Exception ("Transaction Failed: Stock unavailable")
+        UI-->>User: Display Error Alert & Preserve Cart State
+    end
+
+    SS->>Log: log_action("SALE_COMPLETED", invoice_no)
+    SS-->>UI: Return Completed Invoice DTO
+    UI->>User: Display Receipt & PDF Download Button

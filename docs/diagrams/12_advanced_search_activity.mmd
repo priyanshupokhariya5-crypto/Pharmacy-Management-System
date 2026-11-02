@@ -1,0 +1,23 @@
+flowchart TD
+    Start([User Opens Q13 Search / Types in Dashboard Lookup]) --> InputQuery[Enter Search Term: Code / Name / Category / Shelf]
+    InputQuery --> Debounce{Input Stabilization / Enter Pressed}
+    Debounce --> BuildQuery[SearchService: Build Multi-Parameter SQL with B-Tree Index Coverage]
+    BuildQuery --> CheckExactCode{Exact Match on medicine_code?}
+    CheckExactCode -- Yes --> QueryCodeIndex[Execute: SELECT ... WHERE store_id=? AND medicine_code=? (Index Scan)]
+    CheckExactCode -- No --> CheckPrefix{Prefix or Name Search?}
+    CheckPrefix -- Prefix Search --> QueryPrefixIndex[Execute: WHERE store_id=? AND medicine_name LIKE 'term%' (Index Range)]
+    CheckPrefix -- Multi-Filter --> QueryComposite[Execute Compound Query with Category, Shelf & Expiry Filters]
+    QueryCodeIndex --> FetchBatches[Join INVENTORY_BATCHES & STORAGE_LOCATIONS]
+    QueryPrefixIndex --> FetchBatches
+    QueryComposite --> FetchBatches
+    FetchBatches --> ComputeMetrics[Calculate Total Stock, Active Batches & Days Until Expiry]
+    ComputeMetrics --> SortResults[Sort Results by Expiry Date ASC / Name ASC]
+    SortResults --> RenderResults[Render Search Table with Shelf Codes & Expiry Badges]
+    RenderResults --> UserSelect{User Selects Medicine}
+    UserSelect --> Action{User Action}
+    Action -- Click 'Add to POS Cart' --> CheckStock{Stock > 0?}
+    CheckStock -- No --> ShowOutOfStock[Display 'Cannot add out of stock medicine']
+    CheckStock -- Yes --> TransferToPOS[Pre-populate POS Shopping Cart with Item]
+    Action -- View Batch Breakdown --> DisplayModal[Display All Batches, Expiries & Shelves for Medicine]
+    DisplayModal --> Finish([Search Activity Completed])
+    TransferToPOS --> Finish

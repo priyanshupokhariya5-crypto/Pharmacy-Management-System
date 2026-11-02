@@ -1,0 +1,53 @@
+flowchart TD
+    classDef proc fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+    classDef store fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#ffffff;
+    classDef ext fill:#1e293b,stroke:#0284c7,stroke-width:2px,color:#ffffff;
+
+    User["Authenticated User"]:::ext
+    Customer["Patient / Customer"]:::ext
+    Supplier["Medicine Supplier"]:::ext
+
+    P1["1.0 Authentication & Session Management"]:::proc
+    P2["2.0 Medicine Master & Shelf Management"]:::proc
+    P3["3.0 Q13 Advanced Search Engine"]:::proc
+    P4["4.0 Procurement & Batch Inward"]:::proc
+    P5["5.0 POS Billing & FEFO Dispensing"]:::proc
+    P6["6.0 Reports & Audit Logging"]:::proc
+    P7["7.0 TQM (FMEA / SQC / PDCA)"]:::proc
+
+    D_Users[("D1: Users & Stores")]:::store
+    D_Med[("D2: Medicines & Locations")]:::store
+    D_Batch[("D3: Inventory Batches & Movements")]:::store
+    D_Sales[("D4: Sales, Items & Allocations")]:::store
+    D_Purch[("D5: Suppliers & Purchases")]:::store
+    D_Audit[("D6: Audit Logs & Quality Records")]:::store
+
+    User -->|"Login Request"| P1
+    P1 <-->|"Verify User & Store"| D_Users
+    P1 -->|"Authorized Context"| User
+
+    User -->|"Medicine & Shelf Data"| P2
+    P2 <-->|"Maintain Catalog & Locations"| D_Med
+    P2 <-->|"Validate Shelf Rules"| D_Batch
+
+    User -->|"Search Criteria"| P3
+    P3 <-->|"B-Tree Indexed Queries"| D_Med
+    P3 <-->|"Fetch Batch Availability"| D_Batch
+    P3 -->|"Results"| User
+
+    Supplier -->|"Invoice & Batches"| P4
+    P4 <-->|"Log Purchase & Create Batches"| D_Purch
+    P4 -->|"Update Stock Ledger"| D_Batch
+
+    Customer -->|"Order & Phone"| P5
+    P5 <-->|"FEFO Allocation"| D_Batch
+    P5 -->|"Record Sale & Deduct Stock"| D_Sales
+    P5 -->|"Issue Receipt"| Customer
+
+    P5 -.->|"Trigger Event"| P6
+    P6 <-->|"Aggregate Metrics"| D_Sales
+    P6 <-->|"Stock Audit"| D_Batch
+    P6 -->|"Reports"| User
+
+    User -->|"Log Failures & Defects"| P7
+    P7 <-->|"RPN & Pareto Data"| D_Audit

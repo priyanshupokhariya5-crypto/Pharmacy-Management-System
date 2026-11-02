@@ -1,0 +1,25 @@
+flowchart TD
+    Start([User Launches Application]) --> LoadStores[Query Active Stores from DB]
+    LoadStores --> DisplayLogin[Render Login Screen with Store Selector & 5 Roles]
+    DisplayLogin --> UserInput[User Selects Store, Role, Enters Username & Password]
+    UserInput --> Submit{Click Sign In}
+    Submit --> CheckEmpty{Are fields empty?}
+    CheckEmpty -- Yes --> ShowErr1[Display 'Enter username and password']
+    ShowErr1 --> DisplayLogin
+    CheckEmpty -- No --> FetchUser[Query User Record by username AND store_id]
+    FetchUser --> UserExists{User Found?}
+    UserExists -- No --> ShowErr2[Display 'Invalid username, password, or store']
+    ShowErr2 --> DisplayLogin
+    UserExists -- Yes --> CheckActive{Is User Active?}
+    CheckActive -- No --> ShowErr3[Display 'Account is deactivated. Contact Administrator']
+    ShowErr3 --> DisplayLogin
+    CheckActive -- Yes --> VerifyRole{Selected Role Matches User Role?}
+    VerifyRole -- No --> ShowErr4[Display 'Access Denied: Role mismatch for selected store']
+    ShowErr4 --> DisplayLogin
+    VerifyRole -- Yes --> VerifyHash{Verify PBKDF2 Password Hash}
+    VerifyHash -- Mismatch --> ShowErr5[Display 'Invalid credentials']
+    ShowErr5 --> DisplayLogin
+    VerifyHash -- Match --> LogAuth[Insert Success Record in AUDIT_LOGS]
+    LogAuth --> FilterNav[Filter Sidebar Navigation Buttons by User Role Permissions]
+    FilterNav --> RenderDash[Render Role-Specific Dashboard with Live KPIs]
+    RenderDash --> SessionActive([Active User Session])

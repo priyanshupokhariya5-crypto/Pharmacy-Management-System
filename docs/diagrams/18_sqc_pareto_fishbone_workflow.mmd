@@ -1,0 +1,14 @@
+flowchart TD
+    Start([Quality Controller Opens SQC View]) --> AuthCheck{Has 'view_sqc'?}
+    AuthCheck -- No --> Deny[Access Denied]
+    AuthCheck -- Yes --> FetchDefects[Query sqc_defects Table]
+    FetchDefects --> AggregateData[Aggregate Defect Counts by Module & Severity]
+    AggregateData --> GeneratePareto[Compute Cumulative Percentages & Pareto 80/20 Curve]
+    GeneratePareto --> RenderCharts[Render Matplotlib Pareto Chart & Defect Frequency Bars]
+    RenderCharts --> InspectVitalFew{Identify Top 20% Causes producing 80% Defects}
+    InspectVitalFew --> OpenFishbone[Launch Ishikawa / Fishbone Root Cause Diagram]
+    OpenFishbone --> Analyze6M[Evaluate Root Causes across Categories:<br/>1. Methods (FEFO, Shelf Rules)<br/>2. Machines (Scanner, SQLite Engine)<br/>3. Materials (Damaged Packaging, Barcodes)<br/>4. Manpower (Staff Training, Shift Fatigue)<br/>5. Measurement (Stock Count Errors)<br/>6. Mother Nature (Storage Temp, Humidity)]
+    Analyze6M --> FormulateCAPA[Formulate Corrective and Preventive Action (CAPA)]
+    FormulateCAPA --> CreatePDCA[Export Root Cause to PDCA Kaizen Improvement Log]
+    CreatePDCA --> CloseDefect[Update Defect Status to 'Closed / Mitigated']
+    CloseDefect --> Done([SQC Defect Resolution Complete])

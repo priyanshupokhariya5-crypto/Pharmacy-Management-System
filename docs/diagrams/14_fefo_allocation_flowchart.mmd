@@ -1,0 +1,18 @@
+flowchart TD
+    Start([Request to Dispense Qty Q of Medicine M]) --> QueryBatches[Query Batches for Medicine M in Store S<br/>WHERE status = 'Active' AND current_quantity > 0]
+    QueryBatches --> FilterExpired{Filter Expiry Date <= Today?}
+    FilterExpired -- Yes --> ExcludeExpired[Exclude Batch from Allocation (Expired)]
+    FilterExpired -- No --> SortBatches[Sort Eligible Batches: ORDER BY expiry_date ASC, batch_id ASC]
+    SortBatches --> CheckTotalStock{Sum of Eligible Stock >= Q?}
+    CheckTotalStock -- No --> RaiseInsufficient[FAIL: Insufficient unexpired stock available.<br/>Raise ValueError & Abort Sale]
+    CheckTotalStock -- Yes --> InitRemaining[Set RemainingQty = Q, AllocationList = []]
+    InitRemaining --> LoopBatches{RemainingQty > 0?}
+    LoopBatches -- No --> AllocationDone[Allocation Successful: Return AllocationList]
+    LoopBatches -- Yes --> TakeNextBatch[Inspect Next Batch B with Available Quantity AvailQty]
+    TakeNextBatch --> CompareQty{AvailQty >= RemainingQty?}
+    CompareQty -- Yes --> FullyAllocate[Allocate RemainingQty from Batch B<br/>Batch B NewQty = AvailQty - RemainingQty<br/>RemainingQty = 0<br/>Append to AllocationList]
+    FullyAllocate --> LoopBatches
+    CompareQty -- No --> PartiallyAllocate[Allocate AvailQty from Batch B<br/>Batch B NewQty = 0<br/>RemainingQty = RemainingQty - AvailQty<br/>Append to AllocationList]
+    PartiallyAllocate --> LoopBatches
+    AllocationDone --> AtomicDeduct[Deduct Allocated Quantities in SQLite Transaction]
+    AtomicDeduct --> End([FEFO Allocation Complete])

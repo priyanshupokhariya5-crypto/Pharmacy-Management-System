@@ -1,0 +1,34 @@
+flowchart TD
+    Start([Pharmacy Day Begins]) --> Login[1. User Authentication & Store Selection]
+    Login --> Dash[2. Load Role Dashboard: Check Expiry & Low Stock Alerts]
+
+    Dash --> Routine{Select Workflow}
+
+    Routine -- Procurement --> Supp[3. Register / Select Supplier]
+    Supp --> PO[4. Create Purchase Order & Inward Consignment]
+    PO --> ShelfAlloc[5. Validate Physical Shelf Allocation & Record Batches]
+    ShelfAlloc --> StockMove1[6. Log PURCHASE_RECEIPT in Stock Ledger]
+    StockMove1 --> Dash
+
+    Routine -- Customer Service --> Search[7. Q13 Fast Medicine Search & Retrieval]
+    Search --> POS[8. Add Unexpired Batches to POS Cart]
+    POS --> ValidatePhone[9. Validate 10-Digit Customer Mobile]
+    ValidatePhone --> FEFO[10. Execute Automated FEFO Allocation]
+    FEFO --> Pay[11. Collect Payment (Cash / UPI / Card)]
+    Pay --> PrintBill[12. Generate PDF Invoice & Dispense Drugs]
+    PrintBill --> StockMove2[13. Log SALE_DISPENSE in Stock Ledger]
+    StockMove2 --> Dash
+
+    Routine -- Returns --> ReturnItem[14. Inspect Returned Medicines & Condition]
+    ReturnItem --> RestockCheck{Condition Sellable?}
+    RestockCheck -- Yes --> RestockBatch[15. Increment Batch & Log CUSTOMER_RETURN]
+    RestockCheck -- No --> QuarantineBatch[16. Move to Quarantine & Log WRITE_OFF]
+    RestockBatch --> RefundPay[17. Issue Customer Refund Voucher]
+    QuarantineBatch --> RefundPay
+    RefundPay --> Dash
+
+    Routine -- Quality & Governance --> FMEA_Run[18. Update FMEA Risk Register & RPNs]
+    FMEA_Run --> SQC_Run[19. Log Defects, Generate Pareto & Fishbone Analysis]
+    SQC_Run --> PDCA_Run[20. Execute PDCA Kaizen Improvement Cycles]
+    PDCA_Run --> AuditRep[21. Export Financial, Inventory & Audit Reports]
+    AuditRep --> EndOfDay([Store Shift Reconciliation & Safe Logout])

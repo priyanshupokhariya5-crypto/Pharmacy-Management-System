@@ -1,0 +1,38 @@
+flowchart TD
+    classDef plan fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#ffffff;
+    classDef do fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ffffff;
+    classDef check fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#ffffff;
+    classDef act fill:#701a75,stroke:#d946ef,stroke-width:2px,color:#ffffff;
+
+    subgraph PLAN["PLAN (Define Objective & Strategy)"]
+        P1["1. Identify Defect from SQC Pareto or High RPN FMEA Item"]:::plan
+        P2["2. Analyze Root Causes via Fishbone (Ishikawa) Diagram"]:::plan
+        P3["3. Formulate Specific Measurable Improvement Target"]:::plan
+        P4["4. Document Action Plan & Assign Responsible Owner"]:::plan
+    end
+
+    subgraph DO["DO (Execute Countermeasures)"]
+        D1["1. Implement Poka-Yoke Controls (Phone Validator, Shelf Checker)"]:::do
+        D2["2. Update Application Logic / Software Constraints"]:::do
+        D3["3. Train Pharmacy Staff on New Standardized Procedure"]:::do
+        D4["4. Execute Pilot Phase under Monitored Conditions"]:::do
+    end
+
+    subgraph CHECK["CHECK (Verify Results & Metrics)"]
+        C1["1. Measure Defect Frequency Post-Implementation"]:::check
+        C2["2. Verify RPN Reduction in FMEA Risk Audit"]:::check
+        C3["3. Compare Result Metric against Plan Baseline"]:::check
+        C4["4. Identify Any Unexpected Secondary Side-Effects"]:::check
+    end
+
+    subgraph ACT["ACT (Standardize & Sustain)"]
+        A1["1. Standardize Software Rule into Production Codebase"]:::act
+        A2["2. Update SOPs & System Documentation"]:::act
+        A3["3. Institutionalize Best Practices across all 5 User Roles"]:::act
+        A4["4. Close Improvement Item & Trigger Next Kaizen Cycle"]:::act
+    end
+
+    PLAN --> DO
+    DO --> CHECK
+    CHECK --> ACT
+    ACT --> PLAN

@@ -1,0 +1,27 @@
+flowchart TD
+    Start([Customer Requests Sales Return]) --> CashierInput[Enter Original Invoice Number]
+    CashierInput --> FetchSale[SalesService: Query Sale & SaleItems by Invoice]
+    FetchSale --> SaleFound{Sale Found & Completed?}
+    SaleFound -- No --> ShowErr[Display 'Invoice not found or already returned']
+    SaleFound -- Yes --> SelectReturnItems[Select Items & Quantities to Return]
+    SelectReturnItems --> CheckReturnLimit{Return Qty <= Original Sold Qty?}
+    CheckReturnLimit -- No --> LimitErr[Block: Cannot return more than originally purchased]
+    LimitErr --> SelectReturnItems
+    CheckReturnLimit -- Yes --> SelectCondition{Item Condition Assessment}
+    SelectCondition -- 'Sellable / Unopened' --> MarkRestock[Condition: SELLABLE<br/>Set restocked = 1]
+    SelectCondition -- 'Damaged / Spoiled' --> MarkQuarantine[Condition: DAMAGED<br/>Set restocked = 0 (Quarantine / Write-off)]
+    MarkRestock --> ComputeRefund[Compute Refund Amount = Unit Price x Return Qty]
+    MarkQuarantine --> ComputeRefund
+    ComputeRefund --> ChooseRefundMethod[Select Refund Method: Cash / UPI / Original]
+    ChooseRefundMethod --> ProcessReturnTxn[Begin SQLite Atomic Transaction]
+    ProcessReturnTxn --> InsertReturn[INSERT INTO sale_returns]
+    InsertReturn --> InsertReturnItems[INSERT INTO sale_return_items]
+    InsertReturnItems --> CheckRestockFlag{restocked == 1?}
+    CheckRestockFlag -- Yes --> IncrementBatch[UPDATE inventory_batches SET current_quantity = current_quantity + Qty]
+    IncrementBatch --> IncrementMed[UPDATE medicines SET quantity = quantity + Qty]
+    IncrementMed --> LogCustomerReturn[INSERT INTO stock_movements (CUSTOMER_RETURN)]
+    CheckRestockFlag -- No --> LogWriteOff[INSERT INTO stock_movements (RECALL_QUARANTINE / WRITE_OFF)]
+    LogCustomerReturn --> CommitReturn[COMMIT TRANSACTION]
+    LogWriteOff --> CommitReturn
+    CommitReturn --> PrintCreditNote[Generate Return / Credit Voucher]
+    PrintCreditNote --> Done([Return Processed & Stock Reconciled])

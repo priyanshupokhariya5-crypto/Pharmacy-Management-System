@@ -1,0 +1,32 @@
+flowchart TD
+    Start([User Navigates to Medicines View]) --> AuthCheck{Has 'view_medicines'?}
+    AuthCheck -- No --> AccessDenied[Raise PermissionError / Access Denied]
+    AuthCheck -- Yes --> LoadMeds[Execute B-Tree Query: Load Store Medicines & Stock]
+    LoadMeds --> DisplayTable[Render Inventory Table with Shelf, Batch & Status Badges]
+
+    DisplayTable --> ActionSelect{User Action}
+
+    ActionSelect -- Click 'Add New Medicine' --> CheckAddPerm{Has 'add_medicine'?}
+    CheckAddPerm -- No --> ShowErr1[Action Prohibited for User Role]
+    CheckAddPerm -- Yes --> OpenAddModal[Open Add Medicine Modal Form]
+    OpenAddModal --> InputDetails[Input Code, Name, Category, Manufacturer, Shelf, Mfg, Expiry]
+    InputDetails --> ValidateShelf[ShelfService: Validate Shelf Expiry Compatibility]
+    ValidateShelf -- Conflict Detected --> ShowShelfErr[Block: Differing expiry dates on same shelf forbidden]
+    ShowShelfErr --> InputDetails
+    ValidateShelf -- Valid --> SaveMed[Insert into MEDICINES & Create Opening BATCH]
+    SaveMed --> RecordLog1[Insert MIGRATION_OPENING into STOCK_MOVEMENTS]
+    RecordLog1 --> RefreshGrid[Refresh Medicine Table]
+
+    ActionSelect -- Click 'Edit Medicine' --> CheckEditPerm{Has 'update_medicine'?}
+    CheckEditPerm -- No --> ShowErr2[Action Prohibited]
+    CheckEditPerm -- Yes --> OpenEditModal[Open Edit Modal with Existing Details]
+    OpenEditModal --> SaveEdit[Update Name, Category, Price, Shelf in DB]
+    SaveEdit --> RefreshGrid
+
+    ActionSelect -- Click 'Delete Medicine' --> CheckDelPerm{Has 'delete_medicine'?}
+    CheckDelPerm -- No --> ShowErr3[Only Owner / Admin Can Delete]
+    CheckDelPerm -- Yes --> CheckDeps{Batches, Sales, or Purchases Exist?}
+    CheckDeps -- Yes --> SafeArchive[Block Hard Delete: Mark is_active=0 with Warning]
+    CheckDeps -- No --> HardDelete[DELETE FROM medicines WHERE medicine_id=?]
+    SafeArchive --> RefreshGrid
+    HardDelete --> RefreshGrid

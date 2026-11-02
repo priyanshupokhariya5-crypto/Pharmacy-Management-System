@@ -124,7 +124,7 @@ Pharmacy-Management-System/
 │   ├── benchmark.py            # Sub-millisecond performance timing framework
 │   └── quality_tools.py        # FMEA, SQC Pareto, Fishbone, and PDCA calculation engines
 │
-├── tests/                      # Automated test suite (270 Passing Tests)
+├── tests/                      # Automated test suite (351 Collected Tests, 349 Passing)
 │   ├── test_sales.py           # POS cart rules, subtotal calculations, and stock deduction tests
 │   ├── test_stage2_migration.py# Schema migration, foreign key integrity, and table rebuild tests
 │   ├── test_stage3_auth_dashboards.py # RBAC permission gating, multi-store isolation tests
@@ -133,9 +133,15 @@ Pharmacy-Management-System/
 │   └── ...                     # Comprehensive regression, search, benchmarking, and quality tests
 │
 └── docs/                       # Complete academic and technical documentation
-    ├── architecture/           # Architecture specifications and 13 Mermaid diagrams
+    ├── architecture/           # Architecture specifications and diagrams
     ├── database/               # Complete database schema design and migration logs
-    └── SRS_Pharmacy_Management_System.md # Software Requirements Specification
+    ├── diagrams/               # 20 standalone Mermaid diagram sources (.mmd) & rendered figures
+    ├── SRS_Pharmacy_Management_System.md # Comprehensive SRS Version 2.0 (Markdown)
+    ├── SRS_Pharmacy_Management_System.docx # Formatted IEEE 29148 Word Document (with rendered figures)
+    ├── SRS_Audit_Report.md     # Detailed source-code discrepancy audit report
+    ├── SRS_Requirements_Traceability_Matrix.csv # Traceability matrix for 112 audited requirements
+    ├── FINAL_QC_REPORT.md      # Comprehensive quality assurance and release sign-off report
+    └── SRS_Pharmacy_Management_System_v1.0_archived.md # Preserved historical baseline
 ```
 
 ---
