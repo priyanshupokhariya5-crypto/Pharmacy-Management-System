@@ -140,8 +140,7 @@ Pharmacy-Management-System/
     ├── SRS_Pharmacy_Management_System.docx # Formatted IEEE 29148 Word Document (with rendered figures)
     ├── SRS_Audit_Report.md     # Detailed source-code discrepancy audit report
     ├── SRS_Requirements_Traceability_Matrix.csv # Traceability matrix for 112 audited requirements
-    ├── FINAL_QC_REPORT.md      # Comprehensive quality assurance and release sign-off report
-    └── SRS_Pharmacy_Management_System_v1.0_archived.md # Preserved historical baseline
+    └── FINAL_QC_REPORT.md      # Comprehensive quality assurance and release sign-off report
 ```
 
 ---

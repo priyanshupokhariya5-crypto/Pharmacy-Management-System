@@ -37,7 +37,7 @@ This **Final Quality Control Report** establishes the empirical baseline and ver
 
 | Verification Check | Required Specification | Verified State | Status |
 | :--- | :--- | :--- | :---: |
-| **Active Working Branch** | `release/v2-clean` | `release/v2-clean` (HEAD at `3d14da7`) | **PASS** |
+| **Active Working Branch** | `release/v2-clean` | `release/v2-clean` (HEAD at `32481c0`) | **PASS** |
 | **Configured Remote** | GitHub origin | `https://github.com/priyanshupokhariya5-crypto/Pharmacy-Management-System.git` | **PASS** |
 | **Milestone Review 1 Commit** | `fcfe5d4c4ca9cd04e7ae0a834e3ed995b6d4d356` | Intact in git history (`git log --oneline`) | **PASS** |
 | **Milestone Review 2 Commit** | `cce94dba300f2eb7d116075b3cfe2838286f15b6` | Intact in git history (`git log --oneline`) | **PASS** |
@@ -209,7 +209,7 @@ The final Word document ([`docs/SRS_Pharmacy_Management_System.docx`](file:///c:
 - **Headers & Footers:** Running headers with document title; dynamic page numbering in footer (`PAGE` of `NUMPAGES`).
 - **Table Styling:** Dark navy blue headers (`#1B365D`) with white bold text, alternating light gray zebra stripes (`#F8F9FA`), and thin interior borders.
 - **Embedded Visuals:** All 20 rendered PNG architectural diagrams are centered with italicized captions and proper paragraph spacing.
-- **File Integrity:** Word document size: **2,118,583 bytes** (clean XML structure without corruption or missing references).
+- **File Integrity:** Word document size: **2,117,857 bytes** (clean XML structure without corruption or missing references).
 
 ---
 
@@ -225,7 +225,7 @@ The **Pharmacy Management System (Version 2.0)** software documentation, archite
 | Academic Program:          B.Tech CSE (IoT & Data Science), Section C                             |
 | Course / Quality Goal:     BBAT104 (Fundamentals of TQM) / Q13 (Faster Search & Retrieval)        |
 | Institution:               Faculty of Technology & Computer Applications, Amrapali University    |
-| Git Branch & Commit:       release/v2-clean @ 3d14da7                                             |
+| Git Branch:                release/v2-clean                                                       |
 | Final Release Status:      VERIFIED, ACCURATE, TRUTHFUL & APPROVED FOR DEFENSE                    |
 +---------------------------------------------------------------------------------------------------+
 ```
