@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    actor Cashier
+    participant UI as BillingView (POS UI)
+    participant Svc as SalesService
+    participant DB as SQLite Database
+    participant FPDF as Receipt Utility
+
+    Cashier->>UI: Enters Customer Mobile & Cart Items
+    UI->>UI: Validate Mobile (^[6-9][0-9]{9}$)
+    UI->>Svc: process_sale(cart_items, phone, mode)
+    activate Svc
+    Svc->>DB: BEGIN IMMEDIATE TRANSACTION
+    Svc->>DB: Query eligible active batches (expiry > today)
+    DB-->>Svc: Return batch candidates
+    Svc->>Svc: Sort batches: ORDER BY expiry ASC, created_at ASC
+    Svc->>Svc: Verify total eligible stock >= requested
+    loop For Each Cart Item
+        Svc->>Svc: Allocate batch quantities (FEFO)
+        Svc->>DB: INSERT INTO sale_items
+        Svc->>DB: INSERT INTO sale_batch_allocations
+        Svc->>DB: UPDATE inventory_batches (deduct current_quantity)
+        Svc->>DB: INSERT INTO stock_movements (SALE_DISPENSE)
+        Svc->>DB: UPDATE medicines (decrement quantity)
+    end
+    Svc->>DB: INSERT INTO sales (Invoice, Total, Payment)
+    Svc->>DB: COMMIT TRANSACTION
+    deactivate Svc
+    Svc->>FPDF: generate_receipt_pdf(sale_id)
+    FPDF-->>UI: Return PDF File Path
+    UI-->>Cashier: Display Success & Print Receipt

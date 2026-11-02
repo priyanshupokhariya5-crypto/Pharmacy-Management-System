@@ -1,0 +1,38 @@
+flowchart TD
+    Staff["Authenticated User"]
+    Customer["Customer / Patient"]
+    Supplier["Medicine Supplier"]
+
+    P1["1.0 Authentication & User Management"]
+    P2["2.0 Medicine Master & Inventory Management"]
+    P3["3.0 Q13 Search & Retrieval Engine"]
+    P4["4.0 Procurement & Goods Inward"]
+    P5["5.0 POS Billing & FEFO Dispensing"]
+    P6["6.0 Returns & Stock Adjustment"]
+    P7["7.0 Reports & Quality Analysis (TQM)"]
+
+    D1[("D1: Users & Stores")]
+    D2[("D2: Medicines & Batches")]
+    D3[("D3: Purchases & Suppliers")]
+    D4[("D4: Sales & Allocations")]
+    D5[("D5: Returns & Stock Movements")]
+    D6[("D6: FMEA/SQC Records")]
+
+    Staff -->|"Credentials"| P1
+    P1 <--> D1
+    Staff -->|"Medicine & Shelf Data"| P2
+    P2 <--> D2
+    Staff -->|"Search Criteria"| P3
+    P3 <--> D2
+    Supplier -->|"Shipment & Invoice"| P4
+    P4 <--> D3
+    P4 -->|"Update Batches"| D2
+    Staff -->|"Cart & Phone"| P5
+    Customer -->|"Payment"| P5
+    P5 <--> D4
+    P5 -->|"Deduct Stock"| D2
+    Customer -->|"Return Item"| P6
+    P6 <--> D5
+    P6 -->|"Adjust Stock"| D2
+    P7 <--> D4
+    P7 <--> D6

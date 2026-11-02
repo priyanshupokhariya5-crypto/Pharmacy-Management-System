@@ -1,0 +1,15 @@
+flowchart TD
+    Start([Start Search]) --> OpenView[Open Advanced Search View]
+    OpenView --> InputText[User Enters Search String]
+    InputText --> Debounce[250 ms Input Debounce Timer]
+    Debounce --> CollectFilters[Collect Filters: Category, Shelf, Expiry Status]
+    CollectFilters --> WhitelistSort[Select Allowed Sort Field Whitelist]
+    WhitelistSort --> ExecSQL[Execute Parameterized SQL Query]
+    ExecSQL --> QueryDB[(SQLite B-Tree Index Scan)]
+    QueryDB --> CheckResults{Records Found?}
+    CheckResults -- Yes --> DisplayGrid[Display Results Grid\nMax 8 for Dashboard]
+    CheckResults -- No --> DisplayEmpty[Display 'No records found' State]
+    DisplayGrid --> EndDecision{Another Search?}
+    DisplayEmpty --> EndDecision
+    EndDecision -- Yes --> InputText
+    EndDecision -- No --> Done([End Search])

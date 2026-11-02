@@ -1,0 +1,23 @@
+graph TD
+    subgraph Host["«device» Local Desktop Computer (Pharmacy Workstation)"]
+        subgraph OS["Microsoft Windows 10/11 x64"]
+            subgraph Python["«execution environment» Python 3.13 Runtime"]
+                subgraph App["Pharmacy Management System Application"]
+                    GUI["«component» CustomTkinter Desktop GUI"]
+                    Service["«component» Business Logic & Services"]
+                end
+                subgraph LocalFiles["Local File Storage"]
+                    DB1[("data/pharmacy_app.db\n(19 SQLite Tables)")]
+                    DB2[("data/pharmacy.db\n(Legacy Store)")]
+                    Invoices["docs/invoices/*.pdf"]
+                    Reports["reports/*.csv"]
+                end
+            end
+        end
+    end
+
+    GUI <--> Service
+    Service <--> DB1
+    Service <--> DB2
+    Service --> Invoices
+    Service --> Reports

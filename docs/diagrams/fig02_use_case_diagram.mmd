@@ -1,0 +1,71 @@
+graph LR
+    subgraph Actors
+        Owner["Owner"]
+        Admin["Admin"]
+        Pharm["Pharmacist"]
+        Cash["Cashier"]
+        InvMgr["Inventory Manager"]
+    end
+
+    subgraph SystemBoundary["Pharmacy Management System Boundary"]
+        UC01((UC-01: Login & Auth))
+        UC02((UC-02: View Dashboard))
+        UC03((UC-03: Manage Medicines))
+        UC04((UC-04: Manage Batches))
+        UC05((UC-05: Advanced Search Q13))
+        UC06((UC-06: Manage Purchases))
+        UC07((UC-07: Manage Suppliers))
+        UC08((UC-08: Billing & Checkout))
+        UC09((UC-09: Manage Staff))
+        UC10((UC-10: View Reports))
+        UC11((UC-11: Manage Returns))
+        UC12((UC-12: FMEA Analysis*))
+        UC13((UC-13: SQC Analysis*))
+    end
+
+    Cash --- UC01
+    Cash --- UC02
+    Cash --- UC05
+    Cash --- UC08
+
+    Pharm --- UC01
+    Pharm --- UC02
+    Pharm --- UC03
+    Pharm --- UC04
+    Pharm --- UC05
+    Pharm --- UC11
+
+    InvMgr --- UC01
+    InvMgr --- UC02
+    InvMgr --- UC03
+    InvMgr --- UC04
+    InvMgr --- UC05
+    InvMgr --- UC06
+
+    Admin --- UC01
+    Admin --- UC02
+    Admin --- UC03
+    Admin --- UC04
+    Admin --- UC05
+    Admin --- UC06
+    Admin --- UC07
+    Admin --- UC08
+    Admin --- UC09
+    Admin --- UC10
+    Admin --- UC11
+    Admin --- UC12
+    Admin --- UC13
+
+    Owner --- UC01
+    Owner --- UC02
+    Owner --- UC03
+    Owner --- UC04
+    Owner --- UC05
+    Owner --- UC06
+    Owner --- UC07
+    Owner --- UC08
+    Owner --- UC09
+    Owner --- UC10
+    Owner --- UC11
+    Owner --- UC12
+    Owner --- UC13

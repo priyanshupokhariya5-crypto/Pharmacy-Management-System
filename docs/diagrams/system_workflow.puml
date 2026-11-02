@@ -1,0 +1,74 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+
+title FIGURE 4: SYSTEM OPERATIONAL WORKFLOW DIAGRAM\nStandard Process Flowchart of Primary Pharmacy Operations
+
+start
+:App Launch;
+:Input Username/Email, Password & Store;
+:Compute PBKDF2 HMAC Hash (200,000 iterations);
+
+if (Credentials Valid & Account Active?) then (yes)
+    :Load Role Permissions (Owner, Admin, Pharmacist, Cashier, Inv Mgr);
+    :Display Customized Role Dashboard;
+    
+    split
+        ' Branch 1: Procurement & Inwarding
+        :Open Purchase Entry View;
+        :Input Supplier Invoice, Medicines, Batches & Quantities;
+        :Assign Physical Storage Shelf (storage_locations);
+        :Atomic Commit: purchases + batches + stock_movements;
+    split again
+        ' Branch 2: POS Billing
+        :Search Medicine in POS Inventory Grid;
+        :Auto-Allocate Earliest Batch (FEFO: ORDER BY expiry ASC);
+        
+        if (Batch Expired? expiry <= today) then (yes)
+            :Block Cart Addition & Alert Cashier;
+            stop
+        else (no)
+            if (Available Quantity >= Requested Quantity?) then (yes)
+                :Add Line Item to POS Cart;
+                :Validate Customer 10-Digit Mobile (^[6-9][0-9]{9}$);
+                :Tender Payment (Cash, UPI, Card);
+                :Atomic Commit: sales + sale_items + allocations;
+                :Decrement Batch Stock & Total Medicine Quantity;
+                :Generate Customer Sales Tax Invoice PDF (FPDF);
+            else (no)
+                :Display Insufficient Stock Warning;
+                stop
+            endif
+        endif
+    split again
+        ' Branch 3: Sales Returns
+        :Input Original Sales Invoice Number;
+        :Verify Line Items & Max Returnable Quantities;
+        
+        if (Returned Item Condition is SELLABLE?) then (yes)
+            :Restock Quantity to Batch current_quantity;
+            :Record CUSTOMER_RETURN Stock Movement;
+        else (no)
+            :Mark restocked = 0 (Damaged / Expired);
+        endif
+        :Commit sale_returns & Update Sale Status;
+    split again
+        ' Branch 4: Quality & Kaizen
+        :Log FMEA Failure Mode & Evaluate S, O, D;
+        :Compute RPN = S * O * D;
+        :Classify Risk Level (Low, Medium, High, Critical);
+        :Log SQC Defect & Track Deming PDCA Improvement Item;
+    end split
+
+    :Append Operation Record to audit_logs;
+    :Session Logout / App Exit;
+    stop
+
+else (no)
+    :Display Error Alert & Log Failed Attempt;
+    stop
+endif
+
+@enduml
+

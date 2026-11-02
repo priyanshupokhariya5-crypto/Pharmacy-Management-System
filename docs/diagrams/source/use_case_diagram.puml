@@ -1,0 +1,70 @@
+@startuml
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+
+title FIGURE 2: SYSTEM USE CASE DIAGRAM (UML STANDARD)\nPharmacy Management System Boundary and Primary Actor Associations
+
+' Left-side primary actors
+actor "Store Owner\n(Full Access)" as Owner
+actor "Store Admin\n(Management)" as Admin
+actor "Registered Pharmacist\n(Clinical / Dispense)" as Pharm
+
+' Right-side primary actors
+actor "POS Cashier\n(Counter Sales)" as Cashier
+actor "Inventory Manager\n(Stock / Purchasing)" as InvMgr
+
+rectangle "System Boundary: Pharmacy Management System" {
+    usecase "UC-01: Authenticate & Select Store Location" as UC01
+    usecase "UC-02: Manage User Accounts & Staff" as UC02
+    usecase "UC-03: Manage Medicine Master Catalog" as UC03
+    usecase "UC-04: Search Medicines & Check Stock" as UC04
+    usecase "UC-05: Record Purchase Entry & Inward Batches" as UC05
+    usecase "UC-06: Assign & Update Storage Locations" as UC06
+    usecase "UC-07: Process POS Billing via FEFO" as UC07
+    usecase "UC-08: Process Customer Sales Returns" as UC08
+    usecase "UC-09: Reconcile Stock & Record Movements" as UC09
+    usecase "UC-10: Evaluate FMEA Process Risks" as UC10
+    usecase "UC-11: Track SQC Defects & PDCA Improvements" as UC11
+    usecase "UC-12: Generate Sales & Inventory Reports" as UC12
+}
+
+' Owner associations
+Owner -- UC01
+Owner -- UC02
+Owner -- UC03
+Owner -- UC12
+
+' Admin associations
+Admin -- UC01
+Admin -- UC02
+Admin -- UC03
+Admin -- UC12
+
+' Pharmacist associations
+Pharm -- UC01
+Pharm -- UC03
+Pharm -- UC04
+Pharm -- UC10
+
+' Cashier associations
+Cashier -- UC01
+Cashier -- UC04
+Cashier -- UC07
+Cashier -- UC08
+
+' Inventory Manager associations
+InvMgr -- UC01
+InvMgr -- UC03
+InvMgr -- UC05
+InvMgr -- UC06
+InvMgr -- UC09
+InvMgr -- UC11
+
+' Stereotype relationships
+UC07 ..> UC04 : <<include>>
+UC08 ..> UC07 : <<extend>>
+
+@enduml
+

@@ -1,0 +1,16 @@
+flowchart TD
+    Start([Start Goods Inward]) --> CreatePO[Create Purchase Order with Supplier and Store]
+    CreatePO --> InputLines[Enter Line Items: Batch No, Mfg Date, Expiry Date, Qty, Cost, Shelf]
+    InputLines --> ValidateDates{Mfg Date <= Expiry Date?}
+    ValidateDates -- No --> DateError[Validation Error: Invalid Expiry]
+    ValidateDates -- Yes --> ValidateShelf{Shelf Compatibility: Same Med + Diff Expiry?}
+    ValidateShelf -- No --> ShelfError[Validation Error: Requires Separate Shelf]
+    ValidateShelf -- Yes --> CheckExisting{Matching Batch Exists?}
+    CheckExisting -- Yes --> IncrementBatch[UPDATE inventory_batches: Increment current_quantity]
+    CheckExisting -- No --> InsertBatch[INSERT INTO inventory_batches: Create New Batch]
+    IncrementBatch --> RecordMovement[INSERT stock_movements: PURCHASE_RECEIPT]
+    InsertBatch --> RecordMovement
+    RecordMovement --> UpdateLegacy[UPDATE medicines: Increment total quantity]
+    UpdateLegacy --> MarkReceived[UPDATE purchases: status = 'Received']
+    MarkReceived --> Commit[COMMIT TRANSACTION]
+    Commit --> Done([Procurement Complete])

@@ -1,0 +1,70 @@
+flowchart LR
+    subgraph Actors["Primary System Actors"]
+        Owner["fa:fa-crown Store Owner (Full Access)"]
+        Admin["fa:fa-user-shield Store Administrator"]
+        Pharm["fa:fa-user-md Registered Pharmacist"]
+        Cashier["fa:fa-cash-register POS Cashier"]
+        InvMgr["fa:fa-boxes Inventory Manager"]
+    end
+
+    subgraph SystemBoundary["Pharmacy Management System Boundary"]
+        UC01(("UC-01: Authenticate & Select Store"))
+        UC02(("UC-02: Manage User Accounts & Staff"))
+        UC03(("UC-03: Manage Medicine Master Catalog"))
+        UC04(("UC-04: Search Medicines & Check Stock"))
+        UC05(("UC-05: Record Purchase Entry & Inward Batches"))
+        UC06(("UC-06: Assign & Update Storage Locations"))
+        UC07(("UC-07: Process POS Billing via FEFO"))
+        UC08(("UC-08: Process Customer Sales Returns"))
+        UC09(("UC-09: Reconcile Stock & Record Movements"))
+        UC10(("UC-10: Evaluate FMEA Process Risks"))
+        UC11(("UC-11: Track SQC Defects & PDCA Improvements"))
+        UC12(("UC-12: Generate Sales & Inventory Reports"))
+    end
+
+    Owner --> UC01
+    Owner --> UC02
+    Owner --> UC03
+    Owner --> UC04
+    Owner --> UC05
+    Owner --> UC06
+    Owner --> UC07
+    Owner --> UC08
+    Owner --> UC09
+    Owner --> UC10
+    Owner --> UC11
+    Owner --> UC12
+
+    Admin --> UC01
+    Admin --> UC02
+    Admin --> UC03
+    Admin --> UC04
+    Admin --> UC05
+    Admin --> UC06
+    Admin --> UC07
+    Admin --> UC08
+    Admin --> UC09
+    Admin --> UC10
+    Admin --> UC11
+    Admin --> UC12
+
+    Pharm --> UC01
+    Pharm --> UC03
+    Pharm --> UC04
+    Pharm --> UC10
+
+    Cashier --> UC01
+    Cashier --> UC04
+    Cashier --> UC07
+    Cashier --> UC08
+
+    InvMgr --> UC01
+    InvMgr --> UC03
+    InvMgr --> UC04
+    InvMgr --> UC05
+    InvMgr --> UC06
+    InvMgr --> UC09
+    InvMgr --> UC11
+
+    UC07 -.->|"<<include>>"| UC04
+    UC08 -.->|"<<extend>>"| UC07

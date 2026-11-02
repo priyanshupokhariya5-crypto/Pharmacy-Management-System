@@ -1,0 +1,15 @@
+flowchart TD
+    Start([Start FEFO Dispense]) --> RecvReq[Receive Medicine ID and Requested Quantity Q]
+    RecvReq --> QueryBatches[Query Batches for Medicine in Active Store]
+    QueryBatches --> FilterExpiry{Expiry Date <= Today?}
+    FilterExpiry -- Yes --> DropExpired[Exclude Expired Batch]
+    FilterExpiry -- No --> FilterStatus{Status == 'Active' AND Verification == 'Verified'?}
+    FilterStatus -- No --> DropInactive[Exclude Inactive/Unverified Batch]
+    FilterStatus -- Yes --> SortBatches[Sort Eligible: ORDER BY expiry_date ASC, created_at ASC]
+    SortBatches --> StockCheck{Sum of Eligible Stock >= Q?}
+    StockCheck -- No --> AbortSale[FAIL: Raise InsufficientStockError and Abort]
+    StockCheck -- Yes --> BeginTx[BEGIN IMMEDIATE TRANSACTION]
+    BeginTx --> AllocLoop[Iterate Earliest Batches: Deduct Stock until Q Fulfilled]
+    AllocLoop --> RecordMovements[INSERT sale_batch_allocations and stock_movements]
+    RecordMovements --> CommitTx[COMMIT TRANSACTION]
+    CommitTx --> Done([FEFO Allocation Complete])

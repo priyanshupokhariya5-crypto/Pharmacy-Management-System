@@ -1,0 +1,84 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName "DejaVu Sans"
+
+title FIGURE 1: LAYERED SOFTWARE ARCHITECTURE DIAGRAM\nPharmacy Management System — 4-Tier Software Architecture
+
+package "Presentation Layer (CustomTkinter Desktop GUI)" {
+    [Login & Store Selector View] as UI_Login
+    [Role-Based Dashboards View] as UI_Dash
+    [Medicine Inventory View] as UI_Med
+    [Batch Inventory & Shelf View] as UI_Batch
+    [Purchase Entry View] as UI_Purch
+    [POS Billing & Cart View] as UI_POS
+    [Sales Returns View] as UI_Returns
+    [FMEA & SQC Quality Views] as UI_Quality
+    [Reports & Analytics View] as UI_Reports
+}
+
+package "Business Logic Layer (Python Core Services & RBAC Guards)" {
+    [AuthService] as S_Auth
+    [RBAC & Tenant Isolation] as S_RBAC
+    [MedicineService] as S_Med
+    [InventoryService] as S_Inv
+    [PurchaseService] as S_Purch
+    [SalesService] as S_Sales
+    [AuditService] as S_Audit
+    [ReportService] as S_Rep
+    [Validation Utilities] as S_Val
+}
+
+package "Data Access Layer (SQLite Database Connection Manager)" {
+    [Database Class (database.db.Database)] as DAL_Class
+    [Foreign Key Enforcer (PRAGMA foreign_keys = ON)] as DAL_FK
+    [Parameterized Query Handlers] as DAL_Query
+    [Atomic Transaction Handler] as DAL_Tx
+}
+
+package "Database Layer (Embedded Relational Storage Engine)" {
+    database "data/pharmacy_app.db\n(19 Normalized Tables)" as DB_App
+    database "data/pharmacy.db\n(9 Core Fallback Tables)" as DB_Core
+}
+
+package "External Utilities & Export Subsystem" {
+    [FPDF / ReportLab PDF Generator] as UTIL_PDF
+    [Local File System Backups] as UTIL_FS
+}
+
+' Control / Data Flows
+UI_Login --> S_Auth : User Credentials
+UI_Dash --> S_Med : KPI Requests
+UI_Med --> S_Med : Catalog CRUD
+UI_Batch --> S_Inv : Batch / Shelf Allocations
+UI_Purch --> S_Purch : Purchase Entries
+UI_POS --> S_Sales : FEFO & Checkout Requests
+UI_Returns --> S_Sales : Return Transactions
+UI_Quality --> S_Audit : Risk & Defect Entries
+UI_Reports --> S_Rep : Analytics Queries
+
+S_Auth --> S_RBAC : Role Checks
+S_Med --> S_RBAC : Store Checks
+S_Sales --> S_Val : Phone / Totals Validation
+
+S_Auth --> DAL_Class : SQL Commands
+S_Med --> DAL_Class : SQL Commands
+S_Inv --> DAL_Class : SQL Commands
+S_Purch --> DAL_Class : SQL Commands
+S_Sales --> DAL_Class : SQL Commands
+S_Audit --> DAL_Class : SQL Commands
+S_Rep --> DAL_Class : SQL Commands
+
+DAL_Class --> DAL_FK
+DAL_Class --> DAL_Query
+DAL_Class --> DAL_Tx
+
+DAL_Tx --> DB_App : Disk Read / Write
+DAL_Tx --> DB_Core : Fallback Read / Write
+
+S_Sales --> UTIL_PDF : Tax Invoice Data
+UTIL_PDF --> UTIL_FS : Save PDF File
+
+@enduml
+

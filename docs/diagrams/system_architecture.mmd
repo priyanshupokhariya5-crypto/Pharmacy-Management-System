@@ -1,0 +1,75 @@
+flowchart TD
+    subgraph PresentationLayer["Presentation Layer (CustomTkinter Desktop GUI)"]
+        UI_Login["Authentication & Store Selector (login.py)"]
+        UI_Dash["Role Dashboards (dashboard.py)"]
+        UI_Med["Medicine Inventory Management (medicines.py)"]
+        UI_Batch["Batch Inventory & Shelves (batch_inventory.py)"]
+        UI_Purch["Purchase Order Entry (purchase_entry.py)"]
+        UI_POS["POS Billing & Checkout (billing.py)"]
+        UI_Returns["Sales Returns & Restocking (billing.py)"]
+        UI_FMEA["FMEA Risk Register View (fmea_view.py)"]
+        UI_SQC["SQC Defect Logging View (sqc_view.py)"]
+        UI_PDCA["PDCA Kaizen Tracking View (pdca_view.py)"]
+    end
+
+    subgraph ServiceLayer["Business Logic Layer (Python Services & RBAC)"]
+        S_Auth["AuthService (PBKDF2-HMAC-SHA256, 200k rounds)"]
+        S_RBAC["RBAC & Multi-Store Isolation (rbac.py)"]
+        S_Med["MedicineService (Catalog CRUD & KPIs)"]
+        S_Inv["InventoryService (Batches, Shelves & Movements)"]
+        S_Purch["PurchaseService (Suppliers & Consignments)"]
+        S_Sales["SalesService (FEFO Allocation & POS Checkout)"]
+        S_Audit["AuditService (Append-Only Logging)"]
+        S_Rep["ReportService (Sales & Financial Analytics)"]
+        S_Val["Input Validators (Indian Mobile & Bill Totals)"]
+    end
+
+    subgraph DataLayer["Database & Persistence Layer (SQLite Connection Manager)"]
+        DB_Class["Database Helper Class (database.db.Database)"]
+        DB_FK["Foreign Key Enforcer (PRAGMA foreign_keys = ON)"]
+        DB_Query["Parameterized Query Execution (execute, fetch_all, fetch_one)"]
+        DB_Tx["Atomic Transaction Blocks (execute_transaction)"]
+        DB_App[("pharmacy_app.db (19 Relational Tables)")]
+        DB_Core[("pharmacy.db (Legacy Core Fallback)")]
+    end
+
+    subgraph ExternalLayer["External Utilities & Reporting"]
+        UTIL_PDF["FPDF / ReportLab PDF Generator (pdf_generator.py)"]
+        UTIL_Backup["Timestamped Database Backup Utility"]
+    end
+
+    UI_Login --> S_Auth
+    UI_Dash --> S_Med
+    UI_Med --> S_Med
+    UI_Batch --> S_Inv
+    UI_Purch --> S_Purch
+    UI_POS --> S_Sales
+    UI_Returns --> S_Sales
+    UI_FMEA --> S_Audit
+    UI_SQC --> S_Audit
+    UI_PDCA --> S_Audit
+
+    S_Auth --> S_RBAC
+    S_Med --> S_RBAC
+    S_Inv --> S_RBAC
+    S_Purch --> S_RBAC
+    S_Sales --> S_RBAC
+
+    S_Auth --> DB_Class
+    S_Med --> DB_Class
+    S_Inv --> DB_Class
+    S_Purch --> DB_Class
+    S_Sales --> DB_Class
+    S_Audit --> DB_Class
+    S_Rep --> DB_Class
+
+    DB_Class --> DB_FK
+    DB_Class --> DB_Query
+    DB_Class --> DB_Tx
+
+    DB_Tx --> DB_App
+    DB_Tx --> DB_Core
+
+    S_Sales --> UTIL_PDF
+    S_Rep --> UTIL_PDF
+    DB_Class -.-> UTIL_Backup

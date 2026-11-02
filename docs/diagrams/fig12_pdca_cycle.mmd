@@ -1,0 +1,12 @@
+flowchart TD
+    subgraph DemingWheel["Deming PDCA Kaizen Improvement Cycle"]
+        Plan["1. PLAN\n• Identify Q13 search latency gaps\n• Analyze stock discrepancy & expiry risks\n• Formulate FMEA prevention plans\n• Establish measurable quality goals"]
+        Do["2. DO\n• Deploy 250 ms debounced live search\n• Enforce Poka-Yoke phone validation\n• Execute automated FEFO allocation\n• Enforce expiry vs shelf segregation"]
+        Check["3. CHECK\n• Monitor SQC defect trends\n• Inspect Pareto distribution charts\n• Measure search query response times\n• Re-evaluate post-action FMEA RPNs"]
+        Act["4. ACT\n• Standardize verified code fixes\n• Update Standard Operating Procedures\n• Train pharmacy staff on POS & FEFO\n• Restart cycle for continuous Kaizen"]
+    end
+
+    Plan --> Do
+    Do --> Check
+    Check --> Act
+    Act --> Plan

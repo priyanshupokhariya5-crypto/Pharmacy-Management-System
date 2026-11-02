@@ -1,0 +1,277 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName "DejaVu Sans"
+
+title FIGURE 3: DATABASE ENTITY-RELATIONSHIP DIAGRAM (CROW'S FOOT NOTATION)\n19 Verified Relational Tables (data/pharmacy_app.db)
+
+entity "stores" as stores {
+    * store_id : TEXT [PK]
+    --
+    store_name : TEXT
+    owner_name : TEXT
+    created_at : TEXT
+    updated_at : TEXT
+}
+
+entity "users" as users {
+    * user_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    username : TEXT [UQ]
+    password_hash : TEXT
+    role : TEXT
+    full_name : TEXT
+    email : TEXT
+    is_active : INTEGER
+}
+
+entity "storage_locations" as storage_locations {
+    * location_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    shelf_code : TEXT
+    rack : TEXT
+    bin : TEXT
+    description : TEXT
+    is_active : INTEGER
+}
+
+entity "medicines" as medicines {
+    * medicine_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    medicine_code : TEXT
+    medicine_name : TEXT
+    category : TEXT
+    manufacturer : TEXT
+    batch_no : TEXT
+    price : REAL
+    quantity : INTEGER
+    expiry_date : TEXT
+    is_active : INTEGER
+}
+
+entity "inventory_batches" as inventory_batches {
+    * batch_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    medicine_id : INTEGER [FK]
+    supplier_id : INTEGER [FK]
+    location_id : INTEGER [FK]
+    batch_number : TEXT
+    expiry_date : TEXT
+    initial_quantity : INTEGER
+    current_quantity : INTEGER
+    purchase_cost : REAL
+    selling_price : REAL
+    status : TEXT
+    verification_flag : INTEGER
+}
+
+entity "suppliers" as suppliers {
+    * supplier_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    supplier_code : TEXT
+    supplier_name : TEXT
+    contact_person : TEXT
+    phone : TEXT
+    email : TEXT
+    gst_number : TEXT
+    is_active : INTEGER
+}
+
+entity "purchases" as purchases {
+    * purchase_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    supplier_id : INTEGER [FK]
+    received_by : INTEGER [FK]
+    invoice_number : TEXT
+    purchase_date : TEXT
+    total_amount : REAL
+    payment_status : TEXT
+    status : TEXT
+}
+
+entity "purchase_items" as purchase_items {
+    * item_id : INTEGER [PK]
+    --
+    purchase_id : INTEGER [FK]
+    medicine_id : INTEGER [FK]
+    batch_id : INTEGER [FK]
+    quantity : INTEGER
+    unit_cost : REAL
+    subtotal : REAL
+}
+
+entity "stock_movements" as stock_movements {
+    * movement_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    medicine_id : INTEGER [FK]
+    batch_id : INTEGER [FK]
+    created_by : INTEGER [FK]
+    movement_type : TEXT
+    quantity_delta : INTEGER
+    reference_type : TEXT
+    reference_id : TEXT
+}
+
+entity "sales" as sales {
+    * sale_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    user_id : INTEGER [FK]
+    invoice_number : TEXT [UQ]
+    patient_name : TEXT
+    patient_phone : TEXT
+    patient_age : INTEGER
+    sale_date : TEXT
+    subtotal : REAL
+    discount_amount : REAL
+    tax_amount : REAL
+    total_amount : REAL
+    payment_method : TEXT
+    status : TEXT
+}
+
+entity "sale_items" as sale_items {
+    * item_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    sale_id : INTEGER [FK]
+    medicine_id : INTEGER [FK]
+    quantity : INTEGER
+    price : REAL
+    subtotal : REAL
+}
+
+entity "sale_batch_allocations" as sale_batch_allocations {
+    * allocation_id : INTEGER [PK]
+    --
+    sale_item_id : INTEGER [FK]
+    batch_id : INTEGER [FK]
+    quantity : INTEGER
+    unit_price : REAL
+    subtotal : REAL
+}
+
+entity "sale_returns" as sale_returns {
+    * return_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    sale_id : INTEGER [FK]
+    created_by : INTEGER [FK]
+    invoice_number : TEXT
+    return_date : TEXT
+    total_refund : REAL
+    refund_method : TEXT
+    reason : TEXT
+}
+
+entity "sale_return_items" as sale_return_items {
+    * return_item_id : INTEGER [PK]
+    --
+    return_id : INTEGER [FK]
+    sale_item_id : INTEGER [FK]
+    medicine_id : INTEGER [FK]
+    batch_id : INTEGER [FK]
+    quantity : INTEGER
+    refund_amount : REAL
+    restocked : INTEGER
+    restock_condition : TEXT
+}
+
+entity "audit_logs" as audit_logs {
+    * log_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    user_id : INTEGER [FK]
+    action : TEXT
+    entity_type : TEXT
+    entity_id : TEXT
+    created_at : TEXT
+}
+
+entity "fmea_records" as fmea_records {
+    * fmea_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    process_module : TEXT
+    failure_mode : TEXT
+    severity : INTEGER
+    occurrence : INTEGER
+    detection : INTEGER
+    rpn : INTEGER
+    risk_level : TEXT
+}
+
+entity "sqc_defects" as sqc_defects {
+    * defect_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    date_reported : TEXT
+    module : TEXT
+    defect_type : TEXT
+    severity : TEXT
+    frequency : INTEGER
+    status : TEXT
+}
+
+entity "pdca_items" as pdca_items {
+    * pdca_id : INTEGER [PK]
+    --
+    store_id : TEXT [FK]
+    improvement_id : TEXT
+    problem : TEXT
+    plan_action : TEXT
+    do_action : TEXT
+    check_action : TEXT
+    act_action : TEXT
+    status : TEXT
+}
+
+entity "schema_migrations" as schema_migrations {
+    * migration_id : INTEGER [PK]
+    --
+    version : TEXT
+    description : TEXT
+    applied_at : TEXT
+    checksum : TEXT
+}
+
+' Relationships (Crow's Foot)
+stores ||..o{ users
+stores ||..o{ storage_locations
+stores ||..o{ medicines
+stores ||..o{ suppliers
+stores ||..o{ purchases
+stores ||..o{ sales
+stores ||..o{ audit_logs
+stores ||..o{ fmea_records
+stores ||..o{ sqc_defects
+stores ||..o{ pdca_items
+
+medicines ||..o{ inventory_batches
+storage_locations ||..o{ inventory_batches
+suppliers ||..o{ purchases
+
+purchases ||..o{ purchase_items
+medicines ||..o{ purchase_items
+inventory_batches ||..o{ purchase_items
+
+sales ||..o{ sale_items
+medicines ||..o{ sale_items
+sale_items ||..o{ sale_batch_allocations
+inventory_batches ||..o{ sale_batch_allocations
+
+sales ||..o{ sale_returns
+sale_returns ||..o{ sale_return_items
+inventory_batches ||..o{ sale_return_items
+inventory_batches ||..o{ stock_movements
+
+@enduml
+

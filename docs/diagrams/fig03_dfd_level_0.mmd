@@ -1,0 +1,19 @@
+flowchart TD
+    Staff["Pharmacy Staff\n(Owner, Admin, Pharmacist, Cashier, InvMgr)"]
+    Supplier["Medicine Supplier"]
+    Customer["Patient / Customer"]
+
+    P0["0.0\nPHARMACY MANAGEMENT SYSTEM\n(Core Desktop Engine)"]
+
+    DB[("D1: Pharmacy Database\n(SQLite 19 Tables)")]
+
+    Staff -->|"Login Credentials, Master Data, Dispense, Queries"| P0
+    P0 -->|"Dashboards, Search Results, Invoices, Audit Logs"| Staff
+
+    Supplier -->|"Shipment Details, Invoices, Batch Numbers"| P0
+    P0 -->|"Purchase Orders, Goods Receipt Confirmation"| Supplier
+
+    Customer -->|"Prescriptions, Mobile Number, Payments"| P0
+    P0 -->|"Printed Sales Receipt, Refund Vouchers"| Customer
+
+    P0 <-->|"Read / Write ACID Transactions"| DB

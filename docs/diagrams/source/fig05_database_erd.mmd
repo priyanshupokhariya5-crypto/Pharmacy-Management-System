@@ -1,0 +1,26 @@
+erDiagram
+    stores ||--o{ users : "has"
+    stores ||--o{ suppliers : "contracts"
+    stores ||--o{ medicines : "catalogues"
+    stores ||--o{ storage_locations : "contains"
+    stores ||--o{ purchases : "places"
+    stores ||--o{ sales : "transacts"
+
+    medicines ||--o{ inventory_batches : "tracks"
+    storage_locations ||--o{ inventory_batches : "locates"
+
+    suppliers ||--o{ purchases : "fulfills"
+    purchases ||--o{ purchase_items : "contains"
+    medicines ||--o{ purchase_items : "itemizes"
+
+    sales ||--o{ sale_items : "contains"
+    medicines ||--o{ sale_items : "itemizes"
+    sale_items ||--o{ sale_batch_allocations : "allocates"
+    inventory_batches ||--o{ sale_batch_allocations : "depletes"
+
+    sales ||--o{ sale_returns : "refunds"
+    sale_returns ||--o{ sale_return_items : "itemizes"
+    medicines ||--o{ sale_return_items : "restocks"
+
+    inventory_batches ||--o{ stock_movements : "records"
+    users ||--o{ audit_logs : "triggers"

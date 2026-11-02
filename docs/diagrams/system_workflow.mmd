@@ -1,0 +1,119 @@
+flowchart TD
+    %% =========================================================================
+    %% STAGE 1: AUTHENTICATION & MULTI-STORE SELECTION
+    %% =========================================================================
+    subgraph S1["Stage 1: Authentication & Store Selection"]
+        S1_Input["User Enters Username / Email & Password"]
+        S1_Store["Select Active Store Location from Dropdown"]
+        S1_Hash{"Verify PBKDF2 Salted Hash (200k rounds)?"}
+        S1_Deny["Reject Authentication & Display Alert"]
+        S1_RBAC["Load User Role (Owner / Admin / Pharmacist / Cashier / Inv Mgr)"]
+        S1_Dash["Route to Customized Role Dashboard"]
+    end
+
+    %% =========================================================================
+    %% STAGE 2: PROCUREMENT & BATCH RECEIVING
+    %% =========================================================================
+    subgraph S2["Stage 2: Procurement & Consignment Receiving"]
+        S2_Supplier["Select Supplier & Input Purchase Invoice Number"]
+        S2_Items["Input Medicine Items, Quantities & Wholesale Unit Costs"]
+        S2_Batch["Create New inventory_batches Record (Batch No, Mfg, Exp)"]
+        S2_Shelf["Assign Physical Storage Location (storage_locations shelf)"]
+        S2_Commit["Atomic DB Commit: purchases + purchase_items + batches"]
+    end
+
+    %% =========================================================================
+    %% STAGE 3: INVENTORY MONITORING & EXPIRY TRACKING
+    %% =========================================================================
+    subgraph S3["Stage 3: Inventory Organization & Expiry Monitoring"]
+        S3_Consol["Consolidate Total Medicine Quantity"]
+        S3_Tabs["Categorize Batches into 4 Operational Tabs"]
+        S3_Check{"Expiry Status Check?"}
+        S3_NearExp["Flag as 'Expiring Soon' (within 30 days)"]
+        S3_Expired["Lock Expired Batches (Prevent Dispensing)"]
+        S3_Active["Maintain Batch in Active Dispensing Pool"]
+    end
+
+    %% =========================================================================
+    %% STAGE 4: POINT OF SALE & FEFO DISPENSING
+    %% =========================================================================
+    subgraph S4["Stage 4: Point of Sale & FEFO Dispensing"]
+        S4_Search["Search Medicine in POS Inventory Grid"]
+        S4_FEFO["System Auto-Selects Earliest-Expiring Active Batch"]
+        S4_QtyCheck{"Verify Batch Current Quantity > 0?"}
+        S4_Cart["Add Item to POS Cart (Medicine, Batch, Shelf, Price)"]
+        S4_Phone["Validate Customer 10-Digit Indian Mobile Number"]
+        S4_Pay["Select Payment Method (Cash / UPI / Card)"]
+        S4_Commit["Atomic DB Commit: sales + sale_items + allocations"]
+        S4_Stock["Decrement inventory_batches & medicines Stock"]
+        S4_Invoice["Generate Customer Sales Invoice PDF (FPDF Engine)"]
+    end
+
+    %% =========================================================================
+    %% STAGE 5: SALES RETURNS & RESTOCKING
+    %% =========================================================================
+    subgraph S5["Stage 5: Sales Returns & Refund Processing"]
+        S5_Lookup["Lookup Original Sales Invoice & Purchased Items"]
+        S5_ValQty{"Validate Return Qty <= Max Returnable Qty?"}
+        S5_Inspect{"Inspect Returned Physical Item Condition?"}
+        S5_Restock["Restock to inventory_batches (current_qty + delta)"]
+        S5_NoRestock["Do NOT Restock (Flag restocked=0, DAMAGED/EXPIRED)"]
+        S5_Commit["Atomic DB Commit: sale_returns + sale_return_items"]
+        S5_Move["Record Stock Movement (CUSTOMER_RETURN)"]
+    end
+
+    %% =========================================================================
+    %% STAGE 6: TQM QUALITY CONTROL & CONTINUOUS IMPROVEMENT
+    %% =========================================================================
+    subgraph S6["Stage 6: TQM Quality Control & Kaizen Cycles"]
+        S6_FMEA["Evaluate FMEA Failure Modes & Calculate RPN (S x O x D)"]
+        S6_SQC["Log Defect Incidents by Module & Frequency in sqc_defects"]
+        S6_PDCA["Track Deming PDCA Continuous Improvement Actions"]
+        S6_Audit["Append Audit Trail Record to audit_logs Ledger"]
+    end
+
+    %% Interconnections
+    S1_Input --> S1_Store
+    S1_Store --> S1_Hash
+    S1_Hash -- "Failed" --> S1_Deny
+    S1_Hash -- "Passed" --> S1_RBAC
+    S1_RBAC --> S1_Dash
+
+    S1_Dash --> S2_Supplier
+    S2_Supplier --> S2_Items
+    S2_Items --> S2_Batch
+    S2_Batch --> S2_Shelf
+    S2_Shelf --> S2_Commit
+
+    S2_Commit --> S3_Consol
+    S3_Consol --> S3_Tabs
+    S3_Tabs --> S3_Check
+    S3_Check -- "Expiring Soon (30d)" --> S3_NearExp
+    S3_Check -- "Expired" --> S3_Expired
+    S3_Check -- "Active" --> S3_Active
+
+    S1_Dash --> S4_Search
+    S3_Active -.-> S4_FEFO
+    S4_Search --> S4_FEFO
+    S4_FEFO --> S4_QtyCheck
+    S4_QtyCheck -- "Yes" --> S4_Cart
+    S4_Cart --> S4_Phone
+    S4_Phone --> S4_Pay
+    S4_Pay --> S4_Commit
+    S4_Commit --> S4_Stock
+    S4_Commit --> S4_Invoice
+
+    S4_Commit -.-> S5_Lookup
+    S5_Lookup --> S5_ValQty
+    S5_ValQty -- "Valid" --> S5_Inspect
+    S5_Inspect -- "SELLABLE" --> S5_Restock
+    S5_Inspect -- "DAMAGED/EXPIRED" --> S5_NoRestock
+    S5_Restock --> S5_Commit
+    S5_NoRestock --> S5_Commit
+    S5_Commit --> S5_Move
+
+    S4_Commit --> S6_Audit
+    S5_Commit --> S6_Audit
+    S6_FMEA --> S6_PDCA
+    S6_SQC --> S6_PDCA
+    S6_PDCA --> S6_Audit

@@ -1,0 +1,270 @@
+erDiagram
+    %% =========================================================================
+    %% DOMAIN 1: CORE TENANCY & IDENTITY
+    %% =========================================================================
+    STORES {
+        text store_id PK
+        text store_name
+        text owner_name
+        text created_at
+        text updated_at
+    }
+    USERS {
+        int user_id PK
+        text username
+        text password_hash
+        text role
+        text store_id FK
+        text full_name
+        text email
+        int is_active
+    }
+    AUDIT_LOGS {
+        int log_id PK
+        text store_id FK
+        int user_id FK
+        text action
+        text entity_type
+        text entity_id
+        text details
+        text ip_address
+        text created_at
+    }
+
+    STORES ||--o{ USERS : "employs"
+    STORES ||--o{ AUDIT_LOGS : "logs for"
+    USERS ||--o{ AUDIT_LOGS : "performed by"
+
+    %% =========================================================================
+    %% DOMAIN 2: CATALOG & STORAGE
+    %% =========================================================================
+    STORAGE_LOCATIONS {
+        int location_id PK
+        text store_id FK
+        text shelf_code
+        text rack
+        text bin
+        text description
+        int is_active
+    }
+    MEDICINES {
+        int medicine_id PK
+        text store_id FK
+        text medicine_code
+        text medicine_name
+        text category
+        text manufacturer
+        text batch_no
+        real price
+        int quantity
+        text expiry_date
+        int is_active
+    }
+    INVENTORY_BATCHES {
+        int batch_id PK
+        text store_id FK
+        int medicine_id FK
+        text batch_number
+        int supplier_id FK
+        text mfg_date
+        text expiry_date
+        int initial_quantity
+        int current_quantity
+        real purchase_cost
+        real selling_price
+        int location_id FK
+        text status
+        int verification_flag
+    }
+
+    STORES ||--o{ STORAGE_LOCATIONS : "contains"
+    STORES ||--o{ MEDICINES : "catalogs"
+    STORES ||--o{ INVENTORY_BATCHES : "holds"
+    MEDICINES ||--o{ INVENTORY_BATCHES : "instantiates"
+    STORAGE_LOCATIONS ||--o{ INVENTORY_BATCHES : "stores"
+
+    %% =========================================================================
+    %% DOMAIN 3: PROCUREMENT & SUPPLIERS
+    %% =========================================================================
+    SUPPLIERS {
+        int supplier_id PK
+        text store_id FK
+        text supplier_code
+        text supplier_name
+        text contact_person
+        text phone
+        text email
+        text address
+        text gst_number
+        int is_active
+    }
+    PURCHASES {
+        int purchase_id PK
+        text store_id FK
+        int supplier_id FK
+        text invoice_number
+        text purchase_date
+        real total_amount
+        text payment_status
+        text status
+        int received_by FK
+    }
+    PURCHASE_ITEMS {
+        int item_id PK
+        int purchase_id FK
+        int medicine_id FK
+        int batch_id FK
+        int quantity
+        real unit_cost
+        real subtotal
+    }
+    STOCK_MOVEMENTS {
+        int movement_id PK
+        text store_id FK
+        int medicine_id FK
+        int batch_id FK
+        text movement_type
+        int quantity_delta
+        text reference_type
+        text reference_id
+        int created_by FK
+    }
+
+    STORES ||--o{ SUPPLIERS : "registers"
+    STORES ||--o{ PURCHASES : "orders"
+    SUPPLIERS ||--o{ PURCHASES : "fulfills"
+    USERS ||--o{ PURCHASES : "received by"
+    PURCHASES ||--o{ PURCHASE_ITEMS : "details"
+    MEDICINES ||--o{ PURCHASE_ITEMS : "ordered item"
+    INVENTORY_BATCHES ||--o{ PURCHASE_ITEMS : "batch reference"
+    INVENTORY_BATCHES ||--o{ STOCK_MOVEMENTS : "tracks delta"
+    MEDICINES ||--o{ STOCK_MOVEMENTS : "medicine delta"
+    USERS ||--o{ STOCK_MOVEMENTS : "recorded by"
+
+    %% =========================================================================
+    %% DOMAIN 4: POINT OF SALE & RETURNS
+    %% =========================================================================
+    SALES {
+        int sale_id PK
+        text store_id FK
+        int user_id FK
+        text invoice_number
+        text patient_name
+        text patient_phone
+        int patient_age
+        text sale_date
+        real subtotal
+        real discount_amount
+        real tax_amount
+        real total_amount
+        text payment_method
+        text status
+    }
+    SALE_ITEMS {
+        int item_id PK
+        text store_id FK
+        int sale_id FK
+        int medicine_id FK
+        int quantity
+        real price
+        real subtotal
+    }
+    SALE_BATCH_ALLOCATIONS {
+        int allocation_id PK
+        int sale_item_id FK
+        int batch_id FK
+        int quantity
+        real unit_price
+        real subtotal
+    }
+    SALE_RETURNS {
+        int return_id PK
+        text store_id FK
+        int sale_id FK
+        text invoice_number
+        text return_date
+        real total_refund
+        text refund_method
+        text reason
+        int created_by FK
+    }
+    SALE_RETURN_ITEMS {
+        int return_item_id PK
+        int return_id FK
+        int sale_item_id FK
+        int medicine_id FK
+        int batch_id FK
+        int quantity
+        real unit_price
+        real refund_amount
+        int restocked
+        text restock_condition
+    }
+
+    STORES ||--o{ SALES : "transacts"
+    USERS ||--o{ SALES : "cashier"
+    SALES ||--o{ SALE_ITEMS : "contains"
+    MEDICINES ||--o{ SALE_ITEMS : "dispensed medicine"
+    SALE_ITEMS ||--o{ SALE_BATCH_ALLOCATIONS : "allocates"
+    INVENTORY_BATCHES ||--o{ SALE_BATCH_ALLOCATIONS : "depleted batch"
+    SALES ||--o{ SALE_RETURNS : "refunded"
+    USERS ||--o{ SALE_RETURNS : "processed by"
+    SALE_RETURNS ||--o{ SALE_RETURN_ITEMS : "returned items"
+    INVENTORY_BATCHES ||--o{ SALE_RETURN_ITEMS : "restocked batch"
+
+    %% =========================================================================
+    %% DOMAIN 5: QUALITY ENGINEERING (TQM) & SCHEMA GOVERNANCE
+    %% =========================================================================
+    FMEA_RECORDS {
+        int fmea_id PK
+        text store_id FK
+        text process_module
+        text failure_mode
+        text potential_effect
+        text potential_cause
+        int severity
+        int occurrence
+        int detection
+        int rpn
+        text risk_level
+        text recommended_action
+        text action_status
+        text owner
+    }
+    SQC_DEFECTS {
+        int defect_id PK
+        text store_id FK
+        text date_reported
+        text module
+        text defect_type
+        text severity
+        int frequency
+        text status
+        text root_cause
+        text corrective_action
+        text reported_by
+    }
+    PDCA_ITEMS {
+        int pdca_id PK
+        text store_id FK
+        text improvement_id
+        text problem
+        text plan_action
+        text do_action
+        text check_action
+        text act_action
+        text owner
+        text status
+        text result_metric
+    }
+    SCHEMA_MIGRATIONS {
+        int migration_id PK
+        text version
+        text description
+        text applied_at
+        text checksum
+    }
+
+    STORES ||--o{ FMEA_RECORDS : "assesses"
+    STORES ||--o{ SQC_DEFECTS : "tracks"
+    STORES ||--o{ PDCA_ITEMS : "manages"

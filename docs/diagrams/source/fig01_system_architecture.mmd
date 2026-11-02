@@ -1,0 +1,47 @@
+graph TD
+    subgraph Actors["User Roles (Authenticated Context)"]
+        Owner["Owner"]
+        Admin["Admin"]
+        Pharm["Pharmacist"]
+        Cash["Cashier"]
+        InvMgr["Inventory Manager"]
+    end
+
+    subgraph Presentation["Presentation Layer (CustomTkinter GUI)"]
+        LoginV["Login View"]
+        DashV["Dashboard View"]
+        MedV["Medicine Management"]
+        BatchV["Batch Management"]
+        SrchV["Advanced Search (Q13)"]
+        PurV["Purchase Management"]
+        SupV["Supplier Management"]
+        BillV["Billing (POS)"]
+        StaffV["Staff Management"]
+        RepV["Reports View"]
+        FmeaV["Optional FMEA View*"]
+        SqcV["Optional SQC View*"]
+    end
+
+    subgraph Service["Business Logic & Service Layer"]
+        AuthSvc["Auth & Permission Logic (PBKDF2 200k)"]
+        MedSvc["Medicine Service (CRUD, Archival)"]
+        ShelfSvc["Shelf Service (Expiry Rules)"]
+        SrchSvc["Search Service (Debounce, Query Builder)"]
+        PurSvc["Purchase Service (Inward, POs)"]
+        SupSvc["Supplier Service"]
+        SalesSvc["Sales Service (FEFO Allocation)"]
+        RepSvc["Report Service (Pandas Engine)"]
+        TqmUtil["FMEA & SQC Utilities"]
+        ValUtil["Validators & Audit Logger"]
+    end
+
+    subgraph Persistence["Data Persistence & File Outputs"]
+        DB[("SQLite Database\n(pharmacy_app.db)\n19 Relational Tables")]
+        PDF["PDF Invoices (FPDF)"]
+        CSV["CSV Report Exports"]
+        Charts["Matplotlib Charts"]
+    end
+
+    Actors --> Presentation
+    Presentation --> Service
+    Service --> Persistence

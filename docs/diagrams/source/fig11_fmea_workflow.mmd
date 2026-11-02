@@ -1,0 +1,17 @@
+flowchart TD
+    Start([Start FMEA Risk Assessment]) --> IdentifyFailure[Identify Potential Failure Mode\ne.g. Expired Dispense, Wrong Shelf]
+    IdentifyFailure --> DescribeEffect[Describe Failure Effect, Clinical Impact and Root Cause]
+    DescribeEffect --> ScoreSeverity[Assign Severity S: 1 to 10]
+    ScoreSeverity --> ScoreOccurrence[Assign Occurrence O: 1 to 10]
+    ScoreOccurrence --> ScoreDetection[Assign Detection D: 1 to 10]
+    ScoreDetection --> CalcRPN[Calculate RPN = Severity × Occurrence × Detection]
+    CalcRPN --> ClassifyRisk{Classify Risk Level}
+    ClassifyRisk -- "1–39" --> LowRisk[Low Risk: Routine Monitoring]
+    ClassifyRisk -- "40–79" --> MedRisk[Medium Risk: Standard SOP Control]
+    ClassifyRisk -- "80–124" --> HighRisk[High Risk: Corrective Action Plan]
+    ClassifyRisk -- "125–1000" --> CritRisk[Critical Risk: Immediate Poka-Yoke Error Prevention]
+    LowRisk --> DocumentAction[Document Risk Assessment and Mitigation Rationale]
+    MedRisk --> DocumentAction
+    HighRisk --> DocumentAction
+    CritRisk --> DocumentAction
+    DocumentAction --> Done([FMEA Process Complete])

@@ -1,0 +1,20 @@
+graph TD
+    Root["Pharmacy-Management-System (Root)"]
+
+    DBDir["database/\n• db.py\n• schema.sql\n• migrate.py\n• migrations/"]
+    ModDir["models/\n• user.py\n• medicine.py\n• batch.py\n• purchase.py\n• sale.py"]
+    SvcDir["services/\n• auth_service.py\n• sales_service.py\n• search_service.py\n• shelf_service.py"]
+    UIDir["ui/\n• app.py\n• views/ (login, pos,\n  dashboard, search, reports)"]
+    UtilDir["utils/\n• validators.py\n• receipt.py\n• fmea.py\n• sqc.py\n• audit.py"]
+    TestDir["tests/\n• test_auth.py\n• test_sales.py\n• test_fefo.py\n• test_search.py"]
+    DataDir["data/\n• pharmacy_app.db\n• pharmacy.db\n(19 SQLite Tables)"]
+    DocsDir["docs/\n• SRS (DOCX & MD)\n• diagrams/\n• FINAL_QC_REPORT.md"]
+
+    Root --> DBDir
+    Root --> ModDir
+    Root --> SvcDir
+    Root --> UIDir
+    Root --> UtilDir
+    Root --> TestDir
+    Root --> DataDir
+    Root --> DocsDir
